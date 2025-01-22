@@ -1,6 +1,7 @@
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Wallet, Bus, History } from "lucide-react";
+import { Input } from "@/components/ui/input";
+import { Wallet, Bus, History, ArrowRight } from "lucide-react";
 
 const Dashboard = () => {
   return (
@@ -22,45 +23,84 @@ const Dashboard = () => {
           <Card>
             <CardHeader>
               <CardTitle className="text-lg flex items-center gap-2">
-                <Bus size={20} />
-                Quick Actions
+                <Wallet size={20} />
+                Top Up Wallet
               </CardTitle>
             </CardHeader>
             <CardContent className="space-y-4">
-              <Button className="w-full" onClick={() => {}}>
-                Top Up Wallet
-              </Button>
-              <Button className="w-full" variant="outline" onClick={() => {}}>
-                Book Ticket
-              </Button>
+              <div className="space-y-2">
+                <Input
+                  type="number"
+                  placeholder="Enter amount (KSH)"
+                  className="text-lg"
+                />
+                <Button className="w-full" onClick={() => {}}>
+                  Top Up via M-PESA
+                </Button>
+              </div>
             </CardContent>
           </Card>
 
           <Card>
             <CardHeader>
               <CardTitle className="text-lg flex items-center gap-2">
-                <History size={20} />
-                Recent Transactions
+                <Bus size={20} />
+                Available Routes
               </CardTitle>
             </CardHeader>
             <CardContent>
-              <div className="space-y-2">
-                {[1, 2, 3].map((i) => (
+              <div className="space-y-3">
+                {[
+                  { route: "Nairobi - Mombasa", fare: 1000 },
+                  { route: "Nairobi - Kisumu", fare: 1200 },
+                  { route: "Nairobi - Nakuru", fare: 500 }
+                ].map((item, i) => (
                   <div
                     key={i}
-                    className="flex justify-between items-center p-2 hover:bg-gray-50 rounded"
+                    className="flex items-center justify-between p-3 hover:bg-gray-50 rounded-lg border"
                   >
-                    <div>
-                      <p className="font-medium">Nairobi - Mombasa</p>
-                      <p className="text-sm text-gray-500">Today, 2:30 PM</p>
+                    <div className="flex items-center gap-3">
+                      <Bus className="text-primary" size={20} />
+                      <div>
+                        <p className="font-medium">{item.route}</p>
+                        <p className="text-sm text-gray-500">Available Now</p>
+                      </div>
                     </div>
-                    <p className="font-medium text-destructive">-KSH 1,000</p>
+                    <div className="flex items-center gap-2">
+                      <p className="font-semibold">KSH {item.fare}</p>
+                      <ArrowRight size={16} className="text-gray-400" />
+                    </div>
                   </div>
                 ))}
               </div>
             </CardContent>
           </Card>
         </div>
+
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-lg flex items-center gap-2">
+              <History size={20} />
+              Recent Transactions
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="space-y-2">
+              {[1, 2, 3].map((i) => (
+                <div
+                  key={i}
+                  className="flex justify-between items-center p-2 hover:bg-gray-50 rounded"
+                >
+                  <div>
+                    <p className="font-medium">Nairobi - Mombasa</p>
+                    <p className="text-sm text-gray-500">Today, 2:30 PM</p>
+                  </div>
+                  <p className="font-medium text-destructive">-KSH 1,000</p>
+                </div>
+              ))}
+            </div>
+          </CardContent>
+        </Card>
       </div>
     </div>
   );

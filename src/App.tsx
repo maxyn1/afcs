@@ -19,6 +19,7 @@ import Support from "./pages/Support";
 import AdminDashboard from "./pages/admin/AdminDashboard";
 import Vehicles from "./pages/admin/Vehicles";
 import Saccos from "./pages/admin/Saccos";
+import AdminSettings from "./pages/admin/AdminSettings";
 
 const queryClient = new QueryClient();
 
@@ -84,6 +85,13 @@ const App = () => (
               <ProtectedRoute requireAdmin>
                 <AdminLayout>
                   <Saccos />
+                </AdminLayout>
+              </ProtectedRoute>
+            } />
+            <Route path="/admin/settings" element={
+              <ProtectedRoute requireAdmin>
+                <AdminLayout>
+                  <AdminSettings />
                 </AdminLayout>
               </ProtectedRoute>
             } />

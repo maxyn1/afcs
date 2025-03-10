@@ -1,4 +1,3 @@
-
 import { useState } from "react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
@@ -37,7 +36,6 @@ const AdminLayout: React.FC<AdminLayoutProps> = ({ children }) => {
 
   return (
     <div className="min-h-screen flex flex-col bg-gray-50">
-      {/* Top navigation bar */}
       <header className="bg-white border-b sticky top-0 z-10">
         <div className="container mx-auto px-4 flex items-center justify-between h-16">
           <div className="flex items-center">
@@ -83,7 +81,6 @@ const AdminLayout: React.FC<AdminLayoutProps> = ({ children }) => {
         </div>
       </header>
       
-      {/* Mobile menu */}
       {mobileMenuOpen && (
         <div className="md:hidden bg-white border-b">
           <div className="container mx-auto px-4 py-3">
@@ -115,14 +112,12 @@ const AdminLayout: React.FC<AdminLayoutProps> = ({ children }) => {
         </div>
       )}
       
-      {/* Main content */}
       <main className="flex-1 p-4">
         <div className="max-w-7xl mx-auto">
           {children}
         </div>
       </main>
       
-      {/* Footer */}
       <footer className="bg-white border-t py-4">
         <div className="container mx-auto px-4 text-center text-sm text-gray-500">
           <p>© 2023 Kenya Automatic Fare Collection System Admin. All rights reserved.</p>

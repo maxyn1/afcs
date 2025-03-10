@@ -17,6 +17,7 @@ import Support from "./pages/Support";
 
 // Admin pages
 import AdminDashboard from "./pages/admin/AdminDashboard";
+import Users from "./pages/admin/Users";
 import Vehicles from "./pages/admin/Vehicles";
 import Saccos from "./pages/admin/Saccos";
 import AdminSettings from "./pages/admin/AdminSettings";
@@ -71,6 +72,13 @@ const App = () => (
               <ProtectedRoute requireAdmin>
                 <AdminLayout>
                   <AdminDashboard />
+                </AdminLayout>
+              </ProtectedRoute>
+            } />
+            <Route path="/admin/users" element={
+              <ProtectedRoute requireAdmin>
+                <AdminLayout>
+                  <Users />
                 </AdminLayout>
               </ProtectedRoute>
             } />

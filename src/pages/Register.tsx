@@ -1,8 +1,10 @@
+
 import { useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, Link } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Wallet } from "lucide-react";
 
 const Register = () => {
   const [formData, setFormData] = useState({
@@ -30,7 +32,10 @@ const Register = () => {
   return (
     <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-primary/10 to-secondary/10 py-8">
       <Card className="w-[90%] max-w-md">
-        <CardHeader>
+        <CardHeader className="space-y-1">
+          <div className="flex justify-center mb-2">
+            <Wallet className="h-12 w-12 text-primary" />
+          </div>
           <CardTitle className="text-2xl text-center text-primary">
             Create Account
           </CardTitle>
@@ -96,13 +101,9 @@ const Register = () => {
             </Button>
             <p className="text-center text-sm">
               Already have an account?{" "}
-              <button
-                type="button"
-                onClick={() => navigate("/login")}
-                className="text-primary hover:underline"
-              >
+              <Link to="/login" className="text-primary hover:underline">
                 Login
-              </button>
+              </Link>
             </p>
           </form>
         </CardContent>

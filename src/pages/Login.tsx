@@ -1,8 +1,10 @@
+
 import { useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, Link } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Wallet } from "lucide-react";
 
 const Login = () => {
   const [email, setEmail] = useState("");
@@ -18,7 +20,10 @@ const Login = () => {
   return (
     <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-primary/10 to-secondary/10">
       <Card className="w-[90%] max-w-md">
-        <CardHeader>
+        <CardHeader className="space-y-1">
+          <div className="flex justify-center mb-2">
+            <Wallet className="h-12 w-12 text-primary" />
+          </div>
           <CardTitle className="text-2xl text-center text-primary">
             Kenya AFCS Login
           </CardTitle>
@@ -45,18 +50,19 @@ const Login = () => {
                 required
               />
             </div>
+            <div className="text-sm text-right">
+              <Link to="#" className="text-primary hover:underline">
+                Forgot password?
+              </Link>
+            </div>
             <Button type="submit" className="w-full bg-primary hover:bg-primary/90">
               Login
             </Button>
             <p className="text-center text-sm">
               Don't have an account?{" "}
-              <button
-                type="button"
-                onClick={() => navigate("/register")}
-                className="text-primary hover:underline"
-              >
+              <Link to="/register" className="text-primary hover:underline">
                 Register
-              </button>
+              </Link>
             </p>
           </form>
         </CardContent>

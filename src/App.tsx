@@ -4,13 +4,21 @@ import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
+import { AuthProvider } from "./contexts/AuthContext";
+import ProtectedRoute from "./components/ProtectedRoute";
 import Layout from "./components/Layout";
+import AdminLayout from "./components/AdminLayout";
 import Login from "./pages/Login";
 import Register from "./pages/Register";
 import Dashboard from "./pages/Dashboard";
 import TransactionHistory from "./pages/TransactionHistory";
 import Profile from "./pages/Profile";
 import Support from "./pages/Support";
+
+// Admin pages
+import AdminDashboard from "./pages/admin/AdminDashboard";
+import Vehicles from "./pages/admin/Vehicles";
+import Saccos from "./pages/admin/Saccos";
 
 const queryClient = new QueryClient();
 
@@ -20,17 +28,70 @@ const App = () => (
       <Toaster />
       <Sonner />
       <BrowserRouter>
-        <Routes>
-          <Route path="/" element={<Navigate to="/login" replace />} />
-          <Route path="/login" element={<Login />} />
-          <Route path="/register" element={<Register />} />
-          
-          {/* Protected routes wrapped in Layout */}
-          <Route path="/dashboard" element={<Layout><Dashboard /></Layout>} />
-          <Route path="/transactions" element={<Layout><TransactionHistory /></Layout>} />
-          <Route path="/profile" element={<Layout><Profile /></Layout>} />
-          <Route path="/support" element={<Layout><Support /></Layout>} />
-        </Routes>
+        <AuthProvider>
+          <Routes>
+            {/* Public routes */}
+            <Route path="/" element={<Navigate to="/login" replace />} />
+            <Route path="/login" element={<Login />} />
+            <Route path="/register" element={<Register />} />
+            
+            {/* User protected routes */}
+            <Route path="/dashboard" element={
+              <ProtectedRoute>
+                <Layout>
+                  <Dashboard />
+                </Layout>
+              </ProtectedRoute>
+            } />
+            <Route path="/transactions" element={
+              <ProtectedRoute>
+                <Layout>
+                  <TransactionHistory />
+                </Layout>
+              </ProtectedRoute>
+            } />
+            <Route path="/profile" element={
+              <ProtectedRoute>
+                <Layout>
+                  <Profile />
+                </Layout>
+              </ProtectedRoute>
+            } />
+            <Route path="/support" element={
+              <ProtectedRoute>
+                <Layout>
+                  <Support />
+                </Layout>
+              </ProtectedRoute>
+            } />
+            
+            {/* Admin protected routes */}
+            <Route path="/admin" element={
+              <ProtectedRoute requireAdmin>
+                <AdminLayout>
+                  <AdminDashboard />
+                </AdminLayout>
+              </ProtectedRoute>
+            } />
+            <Route path="/admin/vehicles" element={
+              <ProtectedRoute requireAdmin>
+                <AdminLayout>
+                  <Vehicles />
+                </AdminLayout>
+              </ProtectedRoute>
+            } />
+            <Route path="/admin/saccos" element={
+              <ProtectedRoute requireAdmin>
+                <AdminLayout>
+                  <Saccos />
+                </AdminLayout>
+              </ProtectedRoute>
+            } />
+            
+            {/* Catch-all route */}
+            <Route path="*" element={<Navigate to="/login" replace />} />
+          </Routes>
+        </AuthProvider>
       </BrowserRouter>
     </TooltipProvider>
   </QueryClientProvider>

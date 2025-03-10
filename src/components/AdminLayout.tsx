@@ -1,33 +1,34 @@
 
 import { useState } from "react";
-import { Link, useLocation } from "react-router-dom";
+import { Link, useLocation, useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { 
-  Home, 
-  Wallet, 
-  History, 
-  User, 
-  HelpCircle,
+  LayoutDashboard, 
+  Users, 
+  Bus, 
+  Building2,
+  Settings, 
   LogOut, 
   Menu,
   X
 } from "lucide-react";
 import { useAuth } from "../contexts/AuthContext";
 
-interface LayoutProps {
+interface AdminLayoutProps {
   children: React.ReactNode;
 }
 
-const Layout: React.FC<LayoutProps> = ({ children }) => {
+const AdminLayout: React.FC<AdminLayoutProps> = ({ children }) => {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const location = useLocation();
   const { logout } = useAuth();
 
   const navItems = [
-    { path: "/dashboard", label: "Dashboard", icon: <Home size={20} /> },
-    { path: "/transactions", label: "Transactions", icon: <History size={20} /> },
-    { path: "/profile", label: "My Profile", icon: <User size={20} /> },
-    { path: "/support", label: "Help & Support", icon: <HelpCircle size={20} /> },
+    { path: "/admin", label: "Overview", icon: <LayoutDashboard size={20} /> },
+    { path: "/admin/users", label: "Users", icon: <Users size={20} /> },
+    { path: "/admin/vehicles", label: "Vehicles", icon: <Bus size={20} /> },
+    { path: "/admin/saccos", label: "SACCOs", icon: <Building2 size={20} /> },
+    { path: "/admin/settings", label: "Settings", icon: <Settings size={20} /> },
   ];
 
   const toggleMobileMenu = () => {
@@ -40,9 +41,8 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
       <header className="bg-white border-b sticky top-0 z-10">
         <div className="container mx-auto px-4 flex items-center justify-between h-16">
           <div className="flex items-center">
-            <Link to="/dashboard" className="flex items-center">
-              <Wallet className="w-8 h-8 text-primary mr-2" />
-              <span className="font-bold text-xl text-primary hidden sm:inline">Kenya AFCS</span>
+            <Link to="/admin" className="flex items-center">
+              <span className="font-bold text-xl text-primary hidden sm:inline">Admin Dashboard</span>
             </Link>
           </div>
           
@@ -116,18 +116,20 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
       )}
       
       {/* Main content */}
-      <main className="flex-1">
-        {children}
+      <main className="flex-1 p-4">
+        <div className="max-w-7xl mx-auto">
+          {children}
+        </div>
       </main>
       
       {/* Footer */}
       <footer className="bg-white border-t py-4">
         <div className="container mx-auto px-4 text-center text-sm text-gray-500">
-          <p>© 2023 Kenya Automatic Fare Collection System. All rights reserved.</p>
+          <p>© 2023 Kenya Automatic Fare Collection System Admin. All rights reserved.</p>
         </div>
       </footer>
     </div>
   );
 };
 
-export default Layout;
+export default AdminLayout;

@@ -124,6 +124,7 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
       <footer className="bg-white border-t py-4">
         <div className="container mx-auto px-4 text-center text-sm text-gray-500">
           <p>© 2023 Kenya Automatic Fare Collection System. All rights reserved.</p>
+        {new Date().getFullYear()} 
         </div>
       </footer>
     </div>

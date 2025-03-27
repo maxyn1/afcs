@@ -120,7 +120,7 @@ const AdminLayout: React.FC<AdminLayoutProps> = ({ children }) => {
       
       <footer className="bg-white border-t py-4">
         <div className="container mx-auto px-4 text-center text-sm text-gray-500">
-          <p>© 2023 Kenya Automatic Fare Collection System Admin. All rights reserved.</p>
+            <p>© {new Date().getFullYear()} Kenya Automatic Fare Collection System Admin. All rights reserved.</p>
         </div>
       </footer>
     </div>

@@ -1,4 +1,5 @@
 import React, { createContext, useState, useContext, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';  // Add this import
 import authService from '../services/authService';
 
 interface User {
@@ -27,6 +28,7 @@ const AuthContext = createContext<AuthContextType>({
 export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [user, setUser] = useState<User | null>(null);
   const [isAuthenticated, setIsAuthenticated] = useState(false);
+  const navigate = useNavigate();  // Add this line
 
   useEffect(() => {
     const storedUser = authService.getCurrentUser();
@@ -40,6 +42,13 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     const userData = await authService.login(email, password);
     setUser(userData);
     setIsAuthenticated(true);
+    
+    // Add navigation logic here
+    if (userData.role === 'system_admin' || userData.role === 'sacco_admin') {
+      navigate('/admin');
+    } else {
+      navigate('/dashboard');
+    }
   };
 
   const logout = () => {

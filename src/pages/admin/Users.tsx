@@ -159,7 +159,7 @@ const Users = () => {
                       </Badge>
                     </TableCell>
                     <TableCell>
-                      <Badge variant={user.status === "active" ? "success" : "secondary"} className={user.status === "active" ? "bg-green-100 text-green-800" : "bg-gray-100 text-gray-800"}>
+                      <Badge variant={user.status === "active" ? "secondary" : "outline"} className={user.status === "active" ? "bg-green-100 text-green-800" : "bg-gray-100 text-gray-800"}>
                         {user.status}
                       </Badge>
                     </TableCell>

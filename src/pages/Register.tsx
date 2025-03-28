@@ -14,7 +14,9 @@ const Register = () => {
     phone: "",
     password: "",
     confirmPassword: "",
+    role: "passenger", // Default role
   });
+  const [isLoading, setIsLoading] = useState(false);
   const navigate = useNavigate();
   const { toast } = useToast(); // Initialize toast
 
@@ -29,8 +31,16 @@ const Register = () => {
       return;
     }
 
+    setIsLoading(true);
     try {
-      await authService.register(formData);
+      await authService.register({
+        fullName: formData.fullName,
+        email: formData.email,
+        phone: formData.phone,
+        password: formData.password,
+        confirmPassword: formData.confirmPassword,
+        role: "passenger"
+      });
       toast({
         title: "Success",
         description: "Registration successful. Please log in.",
@@ -42,6 +52,8 @@ const Register = () => {
         description: error instanceof Error ? error.message : "An error occurred",
         variant: "destructive",
       });
+    } finally {
+      setIsLoading(false);
     }
   };
 
@@ -119,8 +131,12 @@ const Register = () => {
                 required
               />
             </div>
-            <Button type="submit" className="w-full bg-primary hover:bg-primary/90">
-              Register
+            <Button 
+              type="submit" 
+              className="w-full bg-primary hover:bg-primary/90"
+              disabled={isLoading}
+            >
+              {isLoading ? "Registering..." : "Register"}
             </Button>
             <p className="text-center text-sm">
               Already have an account?{" "}

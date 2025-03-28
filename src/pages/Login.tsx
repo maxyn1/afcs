@@ -1,35 +1,48 @@
 import { useState } from "react";
-import { Link } from "react-router-dom";
+import { useNavigate, Link } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Wallet } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
-import authService from "../services/authService"; // Import authService
+import authService from "../services/authService";
 
 const Login = () => {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [isLoading, setIsLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
   const { toast } = useToast();
+  const navigate = useNavigate();
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsLoading(true);
+    setError(null);
 
     try {
       const user = await authService.login(email, password);
+      
       toast({
         title: "Success",
         description: `Welcome back, ${user.name}!`,
+        duration: 3000,
       });
-      localStorage.setItem("token", user.token);
-      window.location.reload();
+
+      // Role-based redirection
+      if (authService.isAdmin(user.role)) {
+        navigate('/admin');
+      } else {
+        navigate('/dashboard');
+      }
+
     } catch (error) {
+      setError(error instanceof Error ? error.message : 'Login failed');
       toast({
-        title: "Login Failed",
+        title: "Login Failed", 
         description: error instanceof Error ? error.message : "Invalid credentials",
         variant: "destructive",
+        duration: 5000,
       });
     } finally {
       setIsLoading(false);
@@ -49,6 +62,11 @@ const Login = () => {
         </CardHeader>
         <CardContent>
           <form onSubmit={handleLogin} className="space-y-4">
+            {error && (
+              <div className="bg-destructive/10 text-destructive text-sm p-3 rounded-md">
+                {error}
+              </div>
+            )}
             <div className="space-y-2">
               <label className="text-sm font-medium">Email</label>
               <Input

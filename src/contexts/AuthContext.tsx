@@ -1,114 +1,66 @@
-
-import React, { createContext, useContext, useState, useEffect } from "react";
-import { useNavigate } from "react-router-dom";
-
-type UserRole = "user" | "admin";
+import React, { createContext, useState, useContext, useEffect } from 'react';
+import authService from '../services/authService';
 
 interface User {
   id: string;
   name: string;
   email: string;
-  role: UserRole;
+  role: 'passenger' | 'sacco_admin' | 'system_admin';
 }
 
 interface AuthContextType {
   user: User | null;
-  isAuthenticated: boolean;
-  isAdmin: boolean;
   login: (email: string, password: string) => Promise<void>;
   logout: () => void;
+  isAuthenticated: boolean;
+  isAdmin: boolean;
 }
 
-const AuthContext = createContext<AuthContextType | undefined>(undefined);
+const AuthContext = createContext<AuthContextType>({
+  user: null,
+  login: async () => {},
+  logout: () => {},
+  isAuthenticated: false,
+  isAdmin: false
+});
 
 export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [user, setUser] = useState<User | null>(null);
-  const navigate = useNavigate();
+  const [isAuthenticated, setIsAuthenticated] = useState(false);
 
-  // Check for stored user on mount
   useEffect(() => {
-    const storedUser = localStorage.getItem("user");
+    const storedUser = authService.getCurrentUser();
     if (storedUser) {
-      try {
-        setUser(JSON.parse(storedUser));
-      } catch (error) {
-        console.error("Failed to parse stored user:", error);
-        localStorage.removeItem("user"); // Clean up invalid data
-      }
+      setUser(storedUser);
+      setIsAuthenticated(true);
     }
   }, []);
 
-  
   const login = async (email: string, password: string) => {
-    // In a real app, this would validate credentials against a backend
-    // For now, we'll simulate with mock users
-    
-    // Mock users - in a real app, this would come from a backend
-    const mockUsers = [
-      {
-        id: "1",
-        name: "Admin User",
-        email: "admin@example.com",
-        password: "admin123",
-        role: "admin" as UserRole
-      },
-      {
-        id: "2",
-        name: "Regular User",
-        email: "user@example.com",
-        password: "user123",
-        role: "user" as UserRole
-      }
-    ];
-
-    const matchedUser = mockUsers.find(
-      (u) => u.email === email && u.password === password
-    );
-
-    if (!matchedUser) {
-      throw new Error("Invalid email or password");
-    }
-
-    // Remove password before storing
-    const { password: _, ...userWithoutPassword } = matchedUser;
-    setUser(userWithoutPassword);
-    
-    // Store user in localStorage
-    localStorage.setItem("user", JSON.stringify(userWithoutPassword));
-
-    // Redirect based on role
-    if (userWithoutPassword.role === "admin") {
-      navigate("/admin");
-    } else {
-      navigate("/dashboard");
-    }
+    const userData = await authService.login(email, password);
+    setUser(userData);
+    setIsAuthenticated(true);
   };
 
   const logout = () => {
+    authService.logout();
     setUser(null);
-    localStorage.removeItem("user");
-    navigate("/login");
+    setIsAuthenticated(false);
   };
 
+  const isAdmin = user?.role === 'system_admin' || user?.role === 'sacco_admin';
+
   return (
-    <AuthContext.Provider
-      value={{
-        user,
-        isAuthenticated: !!user,
-        isAdmin: user?.role === "admin",
-        login,
-        logout
-      }}
-    >
+    <AuthContext.Provider value={{ 
+      user, 
+      login, 
+      logout, 
+      isAuthenticated,
+      isAdmin 
+    }}>
       {children}
     </AuthContext.Provider>
   );
 };
 
-export const useAuth = () => {
-  const context = useContext(AuthContext);
-  if (context === undefined) {
-    throw new Error("useAuth must be used within an AuthProvider");
-  }
-  return context;
-};
+export const useAuth = () => useContext(AuthContext);

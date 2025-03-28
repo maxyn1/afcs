@@ -73,12 +73,13 @@ export class DatabaseSetup {
   async createUsersTable() {
     const createQuery = `
       CREATE TABLE IF NOT EXISTS users (
-        id INT AUTO_INCREMENT PRIMARY KEY,
+        id VARCHAR(36) PRIMARY KEY,
         name VARCHAR(100) NOT NULL,
         email VARCHAR(100) UNIQUE NOT NULL,
         phone VARCHAR(20) UNIQUE,
         password_hash VARCHAR(255) NOT NULL,
         role ENUM('passenger', 'driver', 'sacco_admin', 'system_admin') DEFAULT 'passenger',
+        status ENUM('active', 'inactive', 'suspended') DEFAULT 'active',
         balance DECIMAL(10, 2) DEFAULT 0.00,
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
         last_login TIMESTAMP
@@ -129,7 +130,7 @@ export class DatabaseSetup {
     const createQuery = `
       CREATE TABLE IF NOT EXISTS drivers (
         id INT AUTO_INCREMENT PRIMARY KEY,
-        user_id INT,
+        user_id VARCHAR(36),
         sacco_id INT,
         license_number VARCHAR(50) UNIQUE NOT NULL,
         license_expiry DATE,
@@ -183,7 +184,7 @@ export class DatabaseSetup {
     const createQuery = `
       CREATE TABLE IF NOT EXISTS bookings (
         id INT AUTO_INCREMENT PRIMARY KEY,
-        user_id INT,
+        user_id VARCHAR(36),
         trip_id INT,
         seat_number VARCHAR(10),
         booking_time TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
@@ -201,7 +202,7 @@ export class DatabaseSetup {
     const createQuery = `
       CREATE TABLE IF NOT EXISTS wallet_transactions (
         id INT AUTO_INCREMENT PRIMARY KEY,
-        user_id INT,
+        user_id VARCHAR(36),
         amount DECIMAL(10, 2) NOT NULL,
         transaction_type ENUM('top_up', 'payment', 'refund', 'withdrawal') NOT NULL,
         description TEXT,
@@ -237,7 +238,7 @@ export class DatabaseSetup {
       CREATE TABLE IF NOT EXISTS feedback (
         id INT AUTO_INCREMENT PRIMARY KEY,
         trip_id INT,
-        user_id INT,
+        user_id VARCHAR(36),
         rating INT CHECK (rating BETWEEN 1 AND 5),
         comment TEXT,
         feedback_time TIMESTAMP DEFAULT CURRENT_TIMESTAMP,

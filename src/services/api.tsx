@@ -2,7 +2,7 @@ import axios from 'axios';
 
 // Create an Axios instance with base configuration
 const api = axios.create({
-  baseURL: import.meta.env.VITE_API_BASE_URL || 'http://localhost:3000/api',
+  baseURL: import.meta.env.VITE_API_BASE_URL || 'http://localhost:3000/api', // Make sure this matches your backend port
   timeout: 10000, // 10 seconds
   headers: {
     'Content-Type': 'application/json',
@@ -28,11 +28,11 @@ api.interceptors.request.use(
 api.interceptors.response.use(
   (response) => response,
   (error) => {
-    // Handle specific error scenarios
     if (error.response) {
       switch (error.response.status) {
         case 401:
-          // Unauthorized - clear user and redirect to login
+          // Clear user data and redirect to login
+          localStorage.removeItem('token');
           localStorage.removeItem('user');
           window.location.href = '/login';
           break;
@@ -41,8 +41,7 @@ api.interceptors.response.use(
           console.error('Access forbidden');
           break;
         case 500:
-          // Server error
-          console.error('Server error');
+          console.error('Server error:', error.response.data);
           break;
       }
     }

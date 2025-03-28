@@ -1,10 +1,11 @@
-
 import { useState } from "react";
 import { useNavigate, Link } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Wallet } from "lucide-react";
+import authService from "../services/authService"; // Import authService
+import { useToast } from "@/hooks/use-toast"; // Import toast for notifications
 
 const Register = () => {
   const [formData, setFormData] = useState({
@@ -15,11 +16,33 @@ const Register = () => {
     confirmPassword: "",
   });
   const navigate = useNavigate();
+  const { toast } = useToast(); // Initialize toast
 
-  const handleRegister = (e: React.FormEvent) => {
+  const handleRegister = async (e: React.FormEvent) => {
     e.preventDefault();
-    // TODO: Implement actual registration
-    navigate("/login");
+    if (formData.password !== formData.confirmPassword) {
+      toast({
+        title: "Error",
+        description: "Passwords do not match",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    try {
+      await authService.register(formData);
+      toast({
+        title: "Success",
+        description: "Registration successful. Please log in.",
+      });
+      navigate("/login");
+    } catch (error) {
+      toast({
+        title: "Registration Failed",
+        description: error instanceof Error ? error.message : "An error occurred",
+        variant: "destructive",
+      });
+    }
   };
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {

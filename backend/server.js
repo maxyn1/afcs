@@ -2,6 +2,8 @@ import express from 'express';
 import cors from 'cors';
 import dotenv from 'dotenv';
 import { DatabaseSetup } from './src/config/database.js';
+import bodyParser from 'body-parser';
+import usersRouter from './routes/users.js';
 
 // Load environment variables from .env file
 dotenv.config();
@@ -34,6 +36,7 @@ import userRoutes from './routes/users.js';
 
 // Middleware for routes
 app.use('/api/users', userRoutes);
+app.use('/api/users', usersRouter);
 
 // Default route
 app.get('/', (req, res) => {

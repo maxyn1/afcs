@@ -29,10 +29,16 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   useEffect(() => {
     const storedUser = localStorage.getItem("user");
     if (storedUser) {
-      setUser(JSON.parse(storedUser));
+      try {
+        setUser(JSON.parse(storedUser));
+      } catch (error) {
+        console.error("Failed to parse stored user:", error);
+        localStorage.removeItem("user"); // Clean up invalid data
+      }
     }
   }, []);
 
+  
   const login = async (email: string, password: string) => {
     // In a real app, this would validate credentials against a backend
     // For now, we'll simulate with mock users

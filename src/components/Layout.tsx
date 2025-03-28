@@ -4,10 +4,11 @@ import { Link, useLocation } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { 
   Home, 
-  Wallet, 
+  Wallet as WalletIcon,
   History, 
   User, 
   HelpCircle,
+  CreditCard,
   LogOut, 
   Menu,
   X
@@ -25,6 +26,8 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
 
   const navItems = [
     { path: "/dashboard", label: "Dashboard", icon: <Home size={20} /> },
+    { path: "/wallet", label: "Wallet", icon: <WalletIcon size={20} /> },
+    { path: "/payment-methods", label: "Payment Methods", icon: <CreditCard size={20} /> },
     { path: "/transactions", label: "Transactions", icon: <History size={20} /> },
     { path: "/profile", label: "My Profile", icon: <User size={20} /> },
     { path: "/support", label: "Help & Support", icon: <HelpCircle size={20} /> },
@@ -41,7 +44,7 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
         <div className="container mx-auto px-4 flex items-center justify-between h-16">
           <div className="flex items-center">
             <Link to="/dashboard" className="flex items-center">
-              <Wallet className="w-8 h-8 text-primary mr-2" />
+              <WalletIcon className="w-8 h-8 text-primary mr-2" />
               <span className="font-bold text-xl text-primary hidden sm:inline">Kenya AFCS</span>
             </Link>
           </div>
@@ -123,8 +126,7 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
       {/* Footer */}
       <footer className="bg-white border-t py-4">
         <div className="container mx-auto px-4 text-center text-sm text-gray-500">
-          <p>© 2023 Kenya Automatic Fare Collection System. All rights reserved.</p>
-        {new Date().getFullYear()} 
+          <p>© {new Date().getFullYear()} Kenya Automatic Fare Collection System. All rights reserved.</p>
         </div>
       </footer>
     </div>

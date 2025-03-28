@@ -1,3 +1,4 @@
+
 import { useState } from "react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
@@ -7,6 +8,7 @@ import {
   Bus, 
   Building2,
   Settings, 
+  BarChart,
   LogOut, 
   Menu,
   X
@@ -27,6 +29,7 @@ const AdminLayout: React.FC<AdminLayoutProps> = ({ children }) => {
     { path: "/admin/users", label: "Users", icon: <Users size={20} /> },
     { path: "/admin/vehicles", label: "Vehicles", icon: <Bus size={20} /> },
     { path: "/admin/saccos", label: "SACCOs", icon: <Building2 size={20} /> },
+    { path: "/admin/analytics", label: "Analytics", icon: <BarChart size={20} /> },
     { path: "/admin/settings", label: "Settings", icon: <Settings size={20} /> },
   ];
 

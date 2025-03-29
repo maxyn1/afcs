@@ -1,37 +1,119 @@
+import { useNavigate } from "react-router-dom";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Wallet, Bus, History, ArrowRight, Building2, Car } from "lucide-react";
-import { useState } from "react";
+import { useState, useEffect } from "react";
+import AuthService from "@/services/authService";
+
+interface Vehicle {
+  id: string;
+  number: string;
+  sacco: string;
+}
+
+interface Route {
+  route: string;
+  fare: number;
+}
 
 const Dashboard = () => {
-  const [selectedSacco, setSelectedSacco] = useState("");
-  const [selectedVehicle, setSelectedVehicle] = useState("");
-  const [selectedRoute, setSelectedRoute] = useState("");
+  const [isLoading, setIsLoading] = useState(true);
+  const navigate = useNavigate();
+  const [saccos, setSaccos] = useState<{ id: string; name: string }[]>([]);
+  const [vehicles, setVehicles] = useState<Vehicle[]>([]);
+  const [routes, setRoutes] = useState<Route[]>([]);
+  const [balance, setBalance] = useState(0);
+  const [selectedSacco, setSelectedSacco] = useState<string>("");
+  const [selectedVehicle, setSelectedVehicle] = useState<string>("");
+  const [selectedRoute, setSelectedRoute] = useState<string>("");
 
-  // Mock data - In a real app, this would come from your backend
-  const saccos = [
-    { id: "1", name: "Metro Trans SACCO" },
-    { id: "2", name: "City Hoppa SACCO" },
-    { id: "3", name: "Forward Travelers SACCO" }
-  ];
+  useEffect(() => {
 
-  const vehicles = [
-    { id: "1", number: "KBZ 123A", sacco: "1" },
-    { id: "2", number: "KCY 456B", sacco: "1" },
-    { id: "3", number: "KDE 789C", sacco: "2" }
-  ];
+   const checkAuth = async () => {
+      const token = localStorage.getItem('token');
+      if (!token) {
+        navigate('/login');
+        return;
+      }
 
-  const routes = [
-    { route: "Nairobi - Mombasa", fare: 1000 },
-    { route: "Nairobi - Kisumu", fare: 1200 },
-    { route: "Nairobi - Nakuru", fare: 500 }
-  ];
 
-  const handlePayment = () => {
-    // This would integrate with your payment processing system
-    console.log("Processing payment for route:", selectedRoute);
+
+
+    const fetchData = async () => {
+        try {
+          const [saccosRes, routesRes, balanceRes] = await Promise.all([
+            AuthService.getSaccos(),
+            AuthService.getRoutes(),
+            AuthService.getWalletBalance()
+          ]);
+          
+          setSaccos(saccosRes.data);
+          setRoutes(routesRes.data);
+          setBalance(balanceRes.data.balance);
+        } catch (error) {
+          console.error('Error loading data:', error);
+          // If we get an unauthorized error, redirect to login
+          if (error.response?.status === 401) {
+            localStorage.removeItem('token');
+            navigate('/login');
+          }
+        }
+      };
+      fetchData();
+    };
+
+       checkAuth();
+  }, [navigate]);
+
+
+  if (isLoading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-primary"></div>
+      </div>
+    );
+  }
+
+  const handleSaccoChange = async (saccoId: string) => {
+    setSelectedSacco(saccoId);
+    try {
+      const res = await AuthService.getVehicles(saccoId);
+      setVehicles(res.data);
+    } catch (error) {
+      console.error('Error loading vehicles:', error);
+    }
+  };
+
+  const handleTopUp = async (amount: number) => {
+    try {
+      await AuthService.topUpWallet(amount);
+      const balanceRes = await AuthService.getWalletBalance();
+      setBalance(balanceRes.data.balance);
+    } catch (error) {
+      console.error('Top-up failed:', error);
+    }
+  };
+
+  const handlePayment = async () => {
+    if (!selectedSacco || !selectedVehicle || !selectedRoute) return;
+    
+    try {
+      const selectedRouteFare = routes.find(r => r.route === selectedRoute)?.fare || 0;
+      await AuthService.makePayment({
+        saccoId: selectedSacco,
+        vehicleId: selectedVehicle,
+        route: selectedRoute,
+        amount: selectedRouteFare
+      });
+      
+      // Refresh balance after payment
+      const balanceRes = await AuthService.getWalletBalance();
+      setBalance(balanceRes.data.balance);
+    } catch (error) {
+      console.error('Payment failed:', error);
+    }
   };
 
   return (
@@ -42,7 +124,7 @@ const Dashboard = () => {
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-sm opacity-90">Available Balance</p>
-                <h2 className="text-3xl font-bold">KSH 2,500.00</h2>
+                <h2 className="text-3xl font-bold">KSH {balance.toFixed(2)}</h2>
               </div>
               <Wallet size={32} />
             </div>

@@ -255,76 +255,138 @@ export class DatabaseSetup {
   // Setup indexes
   async setupIndexes() {
     try {
-      // First check which indexes already exist
-      const [existingIndexes] = await this.pool.query(`
-        SELECT INDEX_NAME, TABLE_NAME, COLUMN_NAME 
-        FROM INFORMATION_SCHEMA.STATISTICS 
-        WHERE TABLE_SCHEMA = ?
-      `, [config.db.database]);
-  
-      const existingIndexMap = {};
-      existingIndexes.forEach(row => {
-        const key = `${row.TABLE_NAME}.${row.COLUMN_NAME}`;
-        existingIndexMap[key] = row.INDEX_NAME;
-      });
-  
-      const indexDefinitions = [
-        // Removing email index since it's already covered by UNIQUE constraint
-        { table: 'saccos', name: 'idx_saccos_status', columns: 'status' },
-        { table: 'vehicles', name: 'idx_vehicles_status', columns: 'status' },
-        { table: 'trips', name: 'idx_trips_status', columns: 'status' },
-        { table: 'wallet_transactions', name: 'idx_wallet_transactions_status', columns: 'status' }
-      ];
-  
-      for (const indexDef of indexDefinitions) {
-        // Check if an index already exists on these columns
-        const indexKey = `${indexDef.table}.${indexDef.columns}`;
-        if (!existingIndexMap[indexKey]) {
-          await this.pool.query(`
-            CREATE INDEX ${indexDef.name} ON ${indexDef.table}(${indexDef.columns})
-          `);
-          console.log(`Created index ${indexDef.name} on ${indexDef.table}`);
+      // Check if index exists before creating
+      const checkIndex = async (connection, table, indexName) => {
+        const [indexes] = await connection.query(
+          'SELECT COUNT(*) as count FROM INFORMATION_SCHEMA.STATISTICS WHERE TABLE_SCHEMA = ? AND TABLE_NAME = ? AND INDEX_NAME = ?',
+          [config.db.database, table, indexName]
+        );
+        return indexes[0].count > 0;
+      };
+
+      // Create index with retries
+      const createIndexWithRetry = async (connection, table, indexName, columns) => {
+        const MAX_RETRIES = 3;
+        let retryCount = 0;
+        
+        while (retryCount < MAX_RETRIES) {
+          try {
+            const exists = await checkIndex(connection, table, indexName);
+            if (!exists) {
+              await connection.query(`CREATE INDEX ${indexName} ON ${table}(${columns})`);
+              console.log(`Created index ${indexName} on ${table}`);
+            }
+            return true;
+          } catch (err) {
+            if (err.code === 'ER_DUP_KEYNAME') {
+              return true; // Index already exists
+            }
+            if (err.code === 'ER_LOCK_DEADLOCK' && retryCount < MAX_RETRIES - 1) {
+              retryCount++;
+              await new Promise(resolve => setTimeout(resolve, 1000 * Math.pow(2, retryCount)));
+              continue;
+            }
+            throw err;
+          }
         }
+        return false;
+      };
+
+      // Define indexes
+      const indexes = [
+        { table: 'saccos', name: 'idx_saccos_status_v1', columns: 'status' },
+        { table: 'vehicles', name: 'idx_vehicles_status_v1', columns: 'status' },
+        { table: 'trips', name: 'idx_trips_status_v1', columns: 'status' },
+        { table: 'wallet_transactions', name: 'idx_wallet_trans_status_v1', columns: 'status' }
+      ];
+
+      // Create indexes one at a time without transaction
+      const connection = await this.pool.getConnection();
+      try {
+        for (const idx of indexes) {
+          await createIndexWithRetry(connection, idx.table, idx.name, idx.columns);
+        }
+        console.log('Indexes setup completed successfully');
+      } finally {
+        connection.release();
       }
-  
-      console.log('Indexes setup completed');
     } catch (error) {
-      console.error('Error creating indexes:', error);
-      throw error;
+      console.error('Error in setupIndexes:', error);
+      // Don't throw the error, just log it and continue
+      // This allows the application to start even if some indexes fail
+      console.log('Continuing despite index creation error');
     }
   }
 
   async addTestData() {
-    try {
-      // Add test SACCOs with more data
-      await this.pool.query(`
-        INSERT IGNORE INTO saccos (name, registration_number, contact_email, contact_phone, status) VALUES
-        ('Metro Trans', 'MT123', 'info@metrotrans.co.ke', '+254711111111', 'active'),
-        ('City Hoppa', 'CH456', 'info@cityhoppa.co.ke', '+254722222222', 'active'),
-        ('Forward Travelers', 'FT789', 'info@forward.co.ke', '+254733333333', 'active')
-      `);
+    const MAX_RETRIES = 3;
+    let retryCount = 0;
 
-      // Add test routes with realistic data
-      await this.pool.query(`
-        INSERT IGNORE INTO routes (start_location, end_location, base_fare, distance_km, estimated_duration_minutes) VALUES
-        ('Nairobi', 'Mombasa', 1000, 485, 420),
-        ('Nairobi', 'Kisumu', 800, 340, 360),
-        ('Nairobi', 'Nakuru', 500, 158, 120)
-      `);
+    while (retryCount < MAX_RETRIES) {
+      try {
+        const connection = await this.pool.getConnection();
+        try {
+          await connection.beginTransaction();
 
-      // Add test vehicles
-      await this.pool.query(`
-        INSERT IGNORE INTO vehicles (sacco_id, registration_number, capacity, status) 
-        SELECT id, 
-          CONCAT('KA', FLOOR(RAND() * 1000), 'A'), 
-          45, 
-          'active'
-        FROM saccos
-      `);
+          // Check if data already exists
+          const [existingSaccos] = await connection.query('SELECT COUNT(*) as count FROM saccos');
+          if (existingSaccos[0].count === 0) {
+            // Add test SACCOs
+            await connection.query(`
+              INSERT INTO saccos (name, registration_number, contact_email, contact_phone, status) VALUES
+              ('Metro Trans', 'MT123', 'info@metrotrans.co.ke', '+254711111111', 'active'),
+              ('City Hoppa', 'CH456', 'info@cityhoppa.co.ke', '+254722222222', 'active'),
+              ('Forward Travelers', 'FT789', 'info@forward.co.ke', '+254733333333', 'active')
+            `);
+          }
 
-      console.log('Test data added successfully');
-    } catch (error) {
-      console.error('Error adding test data:', error);
+          // Check and add routes
+          const [existingRoutes] = await connection.query('SELECT COUNT(*) as count FROM routes');
+          if (existingRoutes[0].count === 0) {
+            await connection.query(`
+              INSERT INTO routes (start_location, end_location, base_fare, distance_km, estimated_duration_minutes) VALUES
+              ('Nairobi', 'Mombasa', 1000, 485, 420),
+              ('Nairobi', 'Kisumu', 800, 340, 360),
+              ('Nairobi', 'Nakuru', 500, 158, 120)
+            `);
+          }
+
+          // Add vehicles only if none exist
+          const [existingVehicles] = await connection.query('SELECT COUNT(*) as count FROM vehicles');
+          if (existingVehicles[0].count === 0) {
+            const [saccos] = await connection.query('SELECT id FROM saccos');
+            for (const sacco of saccos) {
+              await connection.query(`
+                INSERT INTO vehicles (sacco_id, registration_number, capacity, status)
+                VALUES (?, CONCAT('KA', FLOOR(RAND() * 1000), 'A'), 45, 'active')
+              `, [sacco.id]);
+            }
+          }
+
+          await connection.commit();
+          console.log('Test data added successfully');
+          break; // Exit the retry loop on success
+
+        } catch (error) {
+          await connection.rollback();
+          if (error.code === 'ER_LOCK_DEADLOCK' && retryCount < MAX_RETRIES - 1) {
+            console.log(`Deadlock detected, retrying... (Attempt ${retryCount + 1}/${MAX_RETRIES})`);
+            retryCount++;
+            // Add a small delay before retrying
+            await new Promise(resolve => setTimeout(resolve, 1000 * retryCount));
+            continue;
+          }
+          throw error;
+        } finally {
+          connection.release();
+        }
+      } catch (error) {
+        if (retryCount === MAX_RETRIES - 1) {
+          console.error('Error adding test data:', error);
+          break;
+        }
+        retryCount++;
+      }
     }
   }
 }

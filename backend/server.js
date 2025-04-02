@@ -6,6 +6,7 @@ import userRoutes from './src/routes/users.js';
 import saccoRoutes from './src/routes/saccos.js';
 import routeRoutes from './src/routes/routes.js';
 import walletRoutes from './src/routes/wallet.js';
+import vehicleRoutes from './src/routes/vehicles.js';
 
 dotenv.config();
 
@@ -20,6 +21,7 @@ app.use(express.json());
 app.use('/api/users', userRoutes);
 app.use('/api/saccos', saccoRoutes);
 app.use('/api/routes', routeRoutes);
+app.use('/api/vehicles', vehicleRoutes);
 app.use('/api/users/wallet', walletRoutes);
 
 // Initialize database and start server

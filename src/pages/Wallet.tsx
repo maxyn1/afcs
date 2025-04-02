@@ -1,4 +1,3 @@
-
 import { 
   Card, 
   CardContent, 
@@ -8,9 +7,60 @@ import {
 } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Wallet as WalletIcon, Plus, CreditCard } from "lucide-react";
+import { useEffect, useState } from "react";
+import AuthService from "@/services/authService";
+import { useToast } from "@/components/ui/use-toast";
 
 const Wallet = () => {
-  const mockBalance = 5250.75;
+  const { toast } = useToast();
+  const [balance, setBalance] = useState<number>(0);
+  const [transactions, setTransactions] = useState([]);
+  const [isLoading, setIsLoading] = useState(true);
+
+  useEffect(() => {
+    loadWalletData();
+  }, []);
+
+  const loadWalletData = async () => {
+    try {
+      setIsLoading(true);
+      const [balanceRes, transactionsRes] = await Promise.all([
+        AuthService.getWalletBalance(),
+        AuthService.getWalletTransactions()
+      ]);
+      // Ensure balance is a number
+      const numBalance = Number(balanceRes.data.balance) || 0;
+      setBalance(numBalance);
+      setTransactions(transactionsRes);
+    } catch (error) {
+      console.error('Error loading wallet data:', error);
+      toast({
+        variant: "destructive",
+        title: "Error",
+        description: "Failed to load wallet data"
+      });
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const handleTopUp = async (amount: number) => {
+    try {
+      await AuthService.topUpWallet(amount);
+      loadWalletData(); // Refresh data
+      toast({
+        title: "Success",
+        description: "Wallet topped up successfully"
+      });
+    } catch (error) {
+      console.error('Top up error:', error);
+      toast({
+        variant: "destructive",
+        title: "Error",
+        description: "Failed to top up wallet"
+      });
+    }
+  };
 
   return (
     <div className="container mx-auto p-6 space-y-6">
@@ -28,11 +78,13 @@ const Wallet = () => {
           </CardHeader>
           <CardContent>
             <div className="py-6">
-              <div className="text-4xl font-bold">KSH {mockBalance.toFixed(2)}</div>
+              <div className="text-4xl font-bold">
+                KSH {typeof balance === 'number' ? balance.toFixed(2) : '0.00'}
+              </div>
               <p className="text-muted-foreground mt-2">Last updated today at 10:30 AM</p>
               
               <div className="flex flex-wrap gap-3 mt-6">
-                <Button className="flex items-center gap-2">
+                <Button className="flex items-center gap-2" onClick={() => handleTopUp(1000)}>
                   <Plus size={16} /> Add Money
                 </Button>
                 <Button variant="outline" className="flex items-center gap-2">

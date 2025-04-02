@@ -3,8 +3,10 @@ import { useAuth } from '../contexts/AuthContext';
 import { ReactNode } from 'react';
 
 interface ProtectedRouteProps {
-  children: ReactNode;
+  children: React.ReactNode;
+  requireAdmin?: boolean; // Add the requireAdmin prop
 }
+
 
 export const ProtectedRoute: React.FC<ProtectedRouteProps> = ({ children }) => {
   const { isAuthenticated } = useAuth();
@@ -18,3 +20,4 @@ export const ProtectedRoute: React.FC<ProtectedRouteProps> = ({ children }) => {
 };
 
 export default ProtectedRoute;
+

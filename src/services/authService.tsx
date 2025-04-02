@@ -36,6 +36,22 @@ interface RegisterData {
   role: string;
 }
 
+interface Transaction {
+  id: number;
+  amount: number;
+  transaction_type: string;
+  description: string;
+  transaction_time: string;
+  payment_method: string;
+  status: string;
+}
+
+interface Vehicle {
+  id: string;
+  number: string;
+  sacco_id: string;
+}
+
 class AuthService {
   private API_URL = '/users'; // Remove /api since it's included in the base URL
 
@@ -166,8 +182,20 @@ class AuthService {
 
   async getVehicles(saccoId: string) {
     try {
-      const response = await api.get(`/vehicles?saccoId=${saccoId}`);
-      return response;
+      console.log('Fetching vehicles for SACCO:', saccoId);
+      const response = await api.get('/vehicles', {
+        params: { saccoId }
+      });
+      console.log('Raw vehicle response:', response.data);
+      
+      // Transform response to match interface
+      const vehicles = response.data.map(v => ({
+        id: v.id.toString(),
+        number: v.registration_number,
+        sacco_id: saccoId // Use the saccoId parameter directly
+      }));
+      console.log('Transformed vehicles:', vehicles);
+      return { data: vehicles };
     } catch (error) {
       console.error('Error fetching vehicles:', error);
       throw error;
@@ -184,12 +212,21 @@ class AuthService {
     }
   }
 
-  async topUpWallet(amount: number) {
+  async topUpWallet(amount: number, paymentMethod: string = 'mpesa'): Promise<void> {
     try {
-      const response = await api.post('/users/wallet/topup', { amount });
-      return response;
+      await api.post('/users/wallet/topup', { amount, payment_method: paymentMethod });
     } catch (error) {
       console.error('Error topping up wallet:', error);
+      throw error;
+    }
+  }
+
+  async getWalletTransactions(): Promise<Transaction[]> {
+    try {
+      const response = await api.get('/users/wallet/transactions');
+      return response.data;
+    } catch (error) {
+      console.error('Error fetching transactions:', error);
       throw error;
     }
   }

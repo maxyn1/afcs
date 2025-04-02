@@ -11,7 +11,7 @@ import axios from "axios";
 interface Vehicle {
   id: string;
   number: string;
-  sacco: string;
+  sacco_id: string;
 }
 
 interface Route {
@@ -75,11 +75,15 @@ const Dashboard = () => {
 
   const handleSaccoChange = async (saccoId: string) => {
     setSelectedSacco(saccoId);
+    setSelectedVehicle(""); // Reset selected vehicle when SACCO changes
     try {
+      console.log('Loading vehicles for SACCO:', saccoId);
       const res = await AuthService.getVehicles(saccoId);
+      console.log('Loaded vehicles:', res.data);
       setVehicles(res.data);
     } catch (error) {
       console.error('Error loading vehicles:', error);
+      setVehicles([]); 
     }
   };
 
@@ -161,7 +165,7 @@ const Dashboard = () => {
             </CardHeader>
             <CardContent className="space-y-4">
               <div className="space-y-2">
-                <Select onValueChange={setSelectedSacco}>
+                <Select onValueChange={handleSaccoChange}>
                   <SelectTrigger>
                     <SelectValue placeholder="Select SACCO" />
                   </SelectTrigger>
@@ -174,18 +178,18 @@ const Dashboard = () => {
                   </SelectContent>
                 </Select>
 
-                <Select onValueChange={setSelectedVehicle}>
+                <Select 
+                  onValueChange={setSelectedVehicle}
+                >
                   <SelectTrigger>
                     <SelectValue placeholder="Select Vehicle" />
                   </SelectTrigger>
                   <SelectContent>
-                    {vehicles
-                      .filter((v) => v.sacco === selectedSacco)
-                      .map((vehicle) => (
-                        <SelectItem key={vehicle.id} value={vehicle.id}>
-                          {vehicle.number}
-                        </SelectItem>
-                      ))}
+                    {vehicles.map((vehicle) => (
+                      <SelectItem key={vehicle.id} value={vehicle.id}>
+                        {vehicle.number}
+                      </SelectItem>
+                    ))}
                   </SelectContent>
                 </Select>
               </div>

@@ -25,7 +25,7 @@ const LandingPage: React.FC = () => {
               </div>
             ) : (
               <div className="flex space-x-4">
-                <Button asChild variant="outline" className="text-white border-white hover:bg-white/10">
+                <Button asChild variant="outline" className="text-black border-white hover:bg-white/10">
                   <Link to="/login">Login</Link>
                 </Button>
                 <Button asChild className="bg-white text-blue-600 hover:bg-gray-100">

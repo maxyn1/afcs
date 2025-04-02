@@ -2,7 +2,7 @@ import axios from 'axios';
 
 // Create an Axios instance with base configuration
 const api = axios.create({
-  baseURL: import.meta.env.VITE_API_BASE_URL || 'http://localhost:3000/api', // Make sure this matches your backend port
+  baseURL: 'http://localhost:3000/api',
   timeout: 10000, // 10 seconds
   headers: {
     'Content-Type': 'application/json',
@@ -31,10 +31,12 @@ api.interceptors.response.use(
     if (error.response) {
       switch (error.response.status) {
         case 401:
-          // Clear user data and redirect to login
-          localStorage.removeItem('token');
-          localStorage.removeItem('user');
-          window.location.href = '/login';
+          // Only redirect if not already on login page to avoid loops
+          if (!window.location.pathname.includes('/login')) {
+            localStorage.removeItem('token');
+            localStorage.removeItem('user');
+            window.location.href = '/login';
+          }
           break;
         case 403:
           // Forbidden - handle access denied

@@ -43,7 +43,10 @@ export class DatabaseSetup {
       await this.createFeedbackTable();
       await this.setupIndexes();
 
-      console.log('Database and tables initialized successfully');
+      // Add test data
+      await this.addTestData();
+
+      console.log('Database and test data initialized successfully');
       return this.pool;
     } catch (error) {
       console.error('Database initialization error:', error);
@@ -286,6 +289,40 @@ export class DatabaseSetup {
     } catch (error) {
       console.error('Error creating indexes:', error);
       throw error;
+    }
+  }
+
+  async addTestData() {
+    try {
+      // Add test SACCOs with more data
+      await this.pool.query(`
+        INSERT IGNORE INTO saccos (name, registration_number, contact_email, contact_phone, status) VALUES
+        ('Metro Trans', 'MT123', 'info@metrotrans.co.ke', '+254711111111', 'active'),
+        ('City Hoppa', 'CH456', 'info@cityhoppa.co.ke', '+254722222222', 'active'),
+        ('Forward Travelers', 'FT789', 'info@forward.co.ke', '+254733333333', 'active')
+      `);
+
+      // Add test routes with realistic data
+      await this.pool.query(`
+        INSERT IGNORE INTO routes (start_location, end_location, base_fare, distance_km, estimated_duration_minutes) VALUES
+        ('Nairobi', 'Mombasa', 1000, 485, 420),
+        ('Nairobi', 'Kisumu', 800, 340, 360),
+        ('Nairobi', 'Nakuru', 500, 158, 120)
+      `);
+
+      // Add test vehicles
+      await this.pool.query(`
+        INSERT IGNORE INTO vehicles (sacco_id, registration_number, capacity, status) 
+        SELECT id, 
+          CONCAT('KA', FLOOR(RAND() * 1000), 'A'), 
+          45, 
+          'active'
+        FROM saccos
+      `);
+
+      console.log('Test data added successfully');
+    } catch (error) {
+      console.error('Error adding test data:', error);
     }
   }
 }

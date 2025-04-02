@@ -110,20 +110,103 @@ class AuthService {
   }
 
   getCurrentUser() {
-    const userJson = localStorage.getItem('user');
-    if (userJson) {
-      const user = JSON.parse(userJson);
-      // Add role check
-      return {
-        ...user,
-        isAdmin: this.isAdmin(user.role)
-      };
+    try {
+      const userJson = localStorage.getItem('user');
+      if (userJson) {
+        const user = JSON.parse(userJson);
+        return {
+          ...user,
+          isAdmin: this.isAdmin(user.role)
+        };
+      }
+      return null;
+    } catch (error) {
+      console.error('Error parsing user data:', error);
+      this.logout();
+      return null;
     }
-    return null;
   }
 
   isAuthenticated() {
-    return !!localStorage.getItem('token');
+    const token = localStorage.getItem('token');
+    const user = this.getCurrentUser();
+    return !!(token && user);
+  }
+
+  // Add new methods for dashboard
+  async getSaccos() {
+    try {
+      console.log('Fetching SACCOs...');
+      const response = await api.get('/saccos');
+      console.log('SACCOs response:', response.data);
+      return response;
+    } catch (error) {
+      console.error('Error fetching SACCOs:', error);
+      if (axios.isAxiosError(error)) {
+        console.error('Response:', error.response?.data);
+      }
+      throw error;
+    }
+  }
+
+  async getRoutes() {
+    try {
+      console.log('Fetching routes...');
+      const response = await api.get('/routes');
+      console.log('Routes response:', response.data);
+      return response;
+    } catch (error) {
+      console.error('Error fetching routes:', error);
+      if (axios.isAxiosError(error)) {
+        console.error('Response:', error.response?.data);
+      }
+      throw error;
+    }
+  }
+
+  async getVehicles(saccoId: string) {
+    try {
+      const response = await api.get(`/vehicles?saccoId=${saccoId}`);
+      return response;
+    } catch (error) {
+      console.error('Error fetching vehicles:', error);
+      throw error;
+    }
+  }
+
+  async getWalletBalance() {
+    try {
+      const response = await api.get('/users/wallet/balance');
+      return response;
+    } catch (error) {
+      console.error('Error fetching wallet balance:', error);
+      throw error;
+    }
+  }
+
+  async topUpWallet(amount: number) {
+    try {
+      const response = await api.post('/users/wallet/topup', { amount });
+      return response;
+    } catch (error) {
+      console.error('Error topping up wallet:', error);
+      throw error;
+    }
+  }
+
+  async makePayment(paymentDetails: {
+    saccoId: string;
+    vehicleId: string;
+    route: string;
+    amount: number;
+  }) {
+    try {
+      const response = await api.post('/payments', paymentDetails);
+      return response;
+    } catch (error) {
+      console.error('Error making payment:', error);
+      throw error;
+    }
   }
 }
 

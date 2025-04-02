@@ -6,6 +6,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Wallet, Bus, History, ArrowRight, Building2, Car } from "lucide-react";
 import { useState, useEffect } from "react";
 import AuthService from "@/services/authService";
+import axios from "axios";
 
 interface Vehicle {
   id: string;
@@ -24,49 +25,45 @@ const Dashboard = () => {
   const [saccos, setSaccos] = useState<{ id: string; name: string }[]>([]);
   const [vehicles, setVehicles] = useState<Vehicle[]>([]);
   const [routes, setRoutes] = useState<Route[]>([]);
-  const [balance, setBalance] = useState(0);
+  const [balance, setBalance] = useState<number>(0);
   const [selectedSacco, setSelectedSacco] = useState<string>("");
   const [selectedVehicle, setSelectedVehicle] = useState<string>("");
   const [selectedRoute, setSelectedRoute] = useState<string>("");
 
   useEffect(() => {
-
-   const checkAuth = async () => {
-      const token = localStorage.getItem('token');
-      if (!token) {
-        navigate('/login');
-        return;
-      }
-
-
-
-
-    const fetchData = async () => {
-        try {
-          const [saccosRes, routesRes, balanceRes] = await Promise.all([
-            AuthService.getSaccos(),
-            AuthService.getRoutes(),
-            AuthService.getWalletBalance()
-          ]);
-          
-          setSaccos(saccosRes.data);
-          setRoutes(routesRes.data);
-          setBalance(balanceRes.data.balance);
-        } catch (error) {
-          console.error('Error loading data:', error);
-          // If we get an unauthorized error, redirect to login
-          if (error.response?.status === 401) {
-            localStorage.removeItem('token');
-            navigate('/login');
-          }
+    const checkAuthAndFetchData = async () => {
+      try {
+        setIsLoading(true);
+        
+        // Check if user is authenticated
+        const user = AuthService.getCurrentUser();
+        if (!user || !AuthService.isAuthenticated()) {
+          navigate('/login');
+          return;
         }
-      };
-      fetchData();
+
+        const [saccosRes, routesRes, balanceRes] = await Promise.all([
+          AuthService.getSaccos(),
+          AuthService.getRoutes(),
+          AuthService.getWalletBalance()
+        ]);
+        
+        setSaccos(saccosRes.data);
+        setRoutes(routesRes.data);
+        const numBalance = Number(balanceRes.data.balance) || 0;
+        setBalance(numBalance);
+      } catch (error) {
+        console.error('Error:', error);
+        if (axios.isAxiosError(error) && error.response?.status === 401) {
+          AuthService.logout(); // Clear auth data and redirect
+        }
+      } finally {
+        setIsLoading(false);
+      }
     };
 
-       checkAuth();
+    checkAuthAndFetchData();
   }, [navigate]);
-
 
   if (isLoading) {
     return (
@@ -124,7 +121,9 @@ const Dashboard = () => {
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-sm opacity-90">Available Balance</p>
-                <h2 className="text-3xl font-bold">KSH {balance.toFixed(2)}</h2>
+                <h2 className="text-3xl font-bold">
+                  KSH {typeof balance === 'number' ? balance.toFixed(2) : '0.00'}
+                </h2>
               </div>
               <Wallet size={32} />
             </div>

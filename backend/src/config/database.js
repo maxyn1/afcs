@@ -257,26 +257,28 @@ export class DatabaseSetup {
     try {
       // First check which indexes already exist
       const [existingIndexes] = await this.pool.query(`
-        SELECT INDEX_NAME, TABLE_NAME 
+        SELECT INDEX_NAME, TABLE_NAME, COLUMN_NAME 
         FROM INFORMATION_SCHEMA.STATISTICS 
         WHERE TABLE_SCHEMA = ?
       `, [config.db.database]);
   
       const existingIndexMap = {};
       existingIndexes.forEach(row => {
-        existingIndexMap[`${row.TABLE_NAME}.${row.INDEX_NAME}`] = true;
+        const key = `${row.TABLE_NAME}.${row.COLUMN_NAME}`;
+        existingIndexMap[key] = row.INDEX_NAME;
       });
   
       const indexDefinitions = [
-        { table: 'users', name: 'idx_users_email', columns: 'email' },
-        { table: 'saccos', name: 'idx_saccos_name', columns: 'name' },
-        { table: 'vehicles', name: 'idx_vehicles_registration', columns: 'registration_number' },
-        { table: 'trips', name: 'idx_trips_route', columns: 'route_id' },
-        { table: 'wallet_transactions', name: 'idx_wallet_transactions_user', columns: 'user_id' }
+        // Removing email index since it's already covered by UNIQUE constraint
+        { table: 'saccos', name: 'idx_saccos_status', columns: 'status' },
+        { table: 'vehicles', name: 'idx_vehicles_status', columns: 'status' },
+        { table: 'trips', name: 'idx_trips_status', columns: 'status' },
+        { table: 'wallet_transactions', name: 'idx_wallet_transactions_status', columns: 'status' }
       ];
   
       for (const indexDef of indexDefinitions) {
-        const indexKey = `${indexDef.table}.${indexDef.name}`;
+        // Check if an index already exists on these columns
+        const indexKey = `${indexDef.table}.${indexDef.columns}`;
         if (!existingIndexMap[indexKey]) {
           await this.pool.query(`
             CREATE INDEX ${indexDef.name} ON ${indexDef.table}(${indexDef.columns})

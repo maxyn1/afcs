@@ -68,7 +68,7 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
           
           <div className="hidden md:flex">
             <Button 
-              variant="outline" 
+              variant="destructive" 
               className="flex items-center gap-2"
               onClick={logout}
             >

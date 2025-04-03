@@ -1,6 +1,7 @@
 import express from 'express';
 import AdminUserController from '../controllers/adminUserController.js';
 import AdminVehicleController from '../controllers/adminVehicleController.js';
+import DashboardController from '../controllers/dashboardController.js';
 import { connectDB } from '../config/database.js';
 import { authMiddleware } from '../middleware/authMiddleware.js';
 import { adminMiddleware } from '../middleware/adminMiddleware.js';
@@ -34,6 +35,7 @@ const createControllerFactory = (ControllerClass) => {
 
 const getAdminUserController = createControllerFactory(AdminUserController);
 const getAdminVehicleController = createControllerFactory(AdminVehicleController);
+const getDashboardController = createControllerFactory(DashboardController);
 
 // Apply auth middlewares
 router.use(authMiddleware());
@@ -125,6 +127,37 @@ router.delete('/vehicles/:id', async (req, res) => {
   try {
     const controller = await getAdminVehicleController();
     return controller.deleteVehicle(req, res);
+  } catch (error) {
+    console.error('Route error:', error);
+    return res.status(500).json({ message: 'Server error' });
+  }
+});
+
+// Dashboard routes
+router.get('/dashboard/stats', async (req, res) => {
+  try {
+    const controller = await getDashboardController();
+    return controller.getStats(req, res);
+  } catch (error) {
+    console.error('Route error:', error);
+    return res.status(500).json({ message: 'Server error' });
+  }
+});
+
+router.get('/dashboard/recent-transactions', async (req, res) => {
+  try {
+    const controller = await getDashboardController();
+    return controller.getRecentTransactions(req, res);
+  } catch (error) {
+    console.error('Route error:', error);
+    return res.status(500).json({ message: 'Server error' });
+  }
+});
+
+router.get('/dashboard/active-saccos', async (req, res) => {
+  try {
+    const controller = await getDashboardController();
+    return controller.getActiveSaccos(req, res);
   } catch (error) {
     console.error('Route error:', error);
     return res.status(500).json({ message: 'Server error' });

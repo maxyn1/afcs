@@ -1,29 +1,100 @@
 import express from 'express';
 import UserController from '../controllers/userController.js';
+import UserDashboardController from '../controllers/userDashboardController.js';
 import { connectDB } from '../config/database.js';
 import { authMiddleware } from '../middleware/authMiddleware.js';
 
 const router = express.Router();
-let userController;
 
-// Initialize controller
-(async () => {
-  try {
-    const pool = await connectDB();
-    userController = new UserController(pool);
-  } catch (error) {
-    console.error('Failed to initialize user controller:', error);
-  }
-})();
+// Controller factory with caching
+const createControllerFactory = (ControllerClass) => {
+  let controller = null;
+  let initPromise = null;
+
+  return async () => {
+    if (controller) return controller;
+    
+    if (!initPromise) {
+      initPromise = (async () => {
+        try {
+          const pool = await connectDB();
+          controller = new ControllerClass(pool);
+          return controller;
+        } catch (error) {
+          console.error('Failed to initialize controller:', error);
+          throw error;
+        }
+      })();
+    }
+    
+    return await initPromise;
+  };
+};
+
+const getUserController = createControllerFactory(UserController);
+const getUserDashboardController = createControllerFactory(UserDashboardController);
 
 // Routes
-router.post('/register', (req, res) => userController.register(req, res));
-router.post('/login', (req, res) => userController.login(req, res));
+router.post('/register', async (req, res) => {
+  const controller = await getUserController();
+  return controller.register(req, res);
+});
+
+router.post('/login', async (req, res) => {
+  const controller = await getUserController();
+  return controller.login(req, res);
+});
 
 // Profile routes - all protected by authentication
-router.get('/profile', authMiddleware(), (req, res) => userController.getProfile(req, res));
-router.put('/profile', authMiddleware(), (req, res) => userController.updateProfile(req, res));
-router.post('/change-password', authMiddleware(), (req, res) => userController.changePassword(req, res));
-router.delete('/profile', authMiddleware(), (req, res) => userController.deleteAccount(req, res));
+router.get('/profile', authMiddleware(), async (req, res) => {
+  const controller = await getUserController();
+  return controller.getProfile(req, res);
+});
+
+router.put('/profile', authMiddleware(), async (req, res) => {
+  const controller = await getUserController();
+  return controller.updateProfile(req, res);
+});
+
+router.post('/change-password', authMiddleware(), async (req, res) => {
+  const controller = await getUserController();
+  return controller.changePassword(req, res);
+});
+
+router.delete('/profile', authMiddleware(), async (req, res) => {
+  const controller = await getUserController();
+  return controller.deleteAccount(req, res);
+});
+
+// Dashboard routes
+router.get('/dashboard/stats', authMiddleware(), async (req, res) => {
+  try {
+    const controller = await getUserDashboardController();
+    return controller.getUserStats(req, res);
+  } catch (error) {
+    console.error('Route error:', error);
+    return res.status(500).json({ message: 'Server error' });
+  }
+});
+
+router.get('/dashboard/recent-transactions', authMiddleware(), async (req, res) => {
+  try {
+    const controller = await getUserDashboardController();
+    return controller.getRecentTransactions(req, res);
+  } catch (error) {
+    console.error('Route error:', error);
+    return res.status(500).json({ message: 'Server error' });
+  }
+});
+
+router.get('/dashboard/frequent-routes', authMiddleware(), async (req, res) => {
+  try {
+    const controller = await getUserDashboardController();
+    return controller.getFrequentRoutes(req, res);
+  } catch (error) {
+    console.error('Route error:', error);
+    return res.status(500).json({ message: 'Server error' });
+  }
+});
 
 export default router;

@@ -8,7 +8,7 @@ import routeRoutes from './src/routes/routes.js';
 import walletRoutes from './src/routes/wallet.js';
 import vehicleRoutes from './src/routes/vehicles.js';
 import adminRoutes from './src/routes/adminRoutes.js';
-
+import { errorHandler } from './src/utils/errorHandler.js';
 
 dotenv.config();
 
@@ -29,6 +29,8 @@ app.use('/api/users/wallet', walletRoutes);
 // Add admin routes
 app.use('/api/admin', adminRoutes);
 
+// Error handling middleware
+app.use(errorHandler);
 
 // Initialize database and start server
 try {

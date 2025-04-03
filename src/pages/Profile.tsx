@@ -1,19 +1,40 @@
-
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { User, Key, Phone, Mail, Save } from "lucide-react";
+import { useToast } from "@/components/ui/use-toast";
+import profileService from "@/services/profileService";
+import { useAuth } from "@/contexts/AuthContext";
 
 const Profile = () => {
+  const { toast } = useToast();
+  const { user, logout } = useAuth();
   const [isEditing, setIsEditing] = useState(false);
   const [profile, setProfile] = useState({
-    fullName: "John Doe",
-    email: "john.doe@example.com",
-    phone: "+254 712 345 678",
-    password: "••••••••",
+    fullName: "",
+    email: "",
+    phone: "",
+    password: "",
   });
+
+  useEffect(() => {
+    loadProfile();
+  }, []);
+
+  const loadProfile = async () => {
+    try {
+      const profileData = await profileService.getProfile();
+      setProfile(profileData);
+    } catch (error) {
+      toast({
+        title: "Error",
+        description: "Failed to load profile data",
+        variant: "destructive",
+      });
+    }
+  };
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { name, value } = e.target;
@@ -23,10 +44,40 @@ const Profile = () => {
     }));
   };
 
-  const handleSave = () => {
-    // In a real app, send update to backend
-    console.log("Saving profile:", profile);
-    setIsEditing(false);
+  const handleSave = async () => {
+    try {
+      await profileService.updateProfile(profile);
+      setIsEditing(false);
+      toast({
+        title: "Success",
+        description: "Profile updated successfully",
+      });
+    } catch (error) {
+      toast({
+        title: "Error",
+        description: "Failed to update profile",
+        variant: "destructive",
+      });
+    }
+  };
+
+  const handleDeleteAccount = async () => {
+    if (window.confirm("Are you sure you want to delete your account? This action cannot be undone.")) {
+      try {
+        await profileService.deleteAccount();
+        toast({
+          title: "Account Deleted",
+          description: "Your account has been deleted successfully",
+        });
+        logout();
+      } catch (error) {
+        toast({
+          title: "Error",
+          description: "Failed to delete account",
+          variant: "destructive",
+        });
+      }
+    }
   };
 
   return (
@@ -154,7 +205,7 @@ const Profile = () => {
                   <h3 className="font-medium text-destructive">Delete Account</h3>
                   <p className="text-sm text-gray-500">Permanently delete your account and data</p>
                 </div>
-                <Button variant="destructive" size="sm">Delete</Button>
+                <Button variant="destructive" size="sm" onClick={handleDeleteAccount}>Delete</Button>
               </div>
             </div>
           </CardContent>

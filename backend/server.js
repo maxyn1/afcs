@@ -7,6 +7,8 @@ import saccoRoutes from './src/routes/saccos.js';
 import routeRoutes from './src/routes/routes.js';
 import walletRoutes from './src/routes/wallet.js';
 import vehicleRoutes from './src/routes/vehicles.js';
+import adminRoutes from './src/routes/adminRoutes.js';
+
 
 dotenv.config();
 
@@ -23,6 +25,10 @@ app.use('/api/saccos', saccoRoutes);
 app.use('/api/routes', routeRoutes);
 app.use('/api/vehicles', vehicleRoutes);
 app.use('/api/users/wallet', walletRoutes);
+
+// Add admin routes
+app.use('/api/admin', adminRoutes);
+
 
 // Initialize database and start server
 try {

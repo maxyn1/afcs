@@ -9,7 +9,7 @@ const saltRounds = 10;
 
 export const registerUser = async (req, res) => {
   try {
-    const { name, email, password, role = 'user' } = req.body;
+    const { fullName, email, password, role = 'user' } = req.body;
 
     // Check if user already exists
     const [existingUser] = await pool.query(
@@ -25,13 +25,12 @@ export const registerUser = async (req, res) => {
     const hashedPassword = await bcrypt.hash(password, saltRounds);
 
     // Generate UUID for user ID
-    const userId = crypto.randomUUID(); // Generate UUID for user ID
-
+    const userId = crypto.randomUUID();
 
     // Insert new user
     await pool.query(
       'INSERT INTO Users (id, name, email, password, role, status) VALUES (?, ?, ?, ?, ?, ?)',
-      [userId, name, email, hashedPassword, role, 'active']
+      [userId, fullName, email, hashedPassword, role, 'active']
     );
 
     // Create JWT token
@@ -43,12 +42,11 @@ export const registerUser = async (req, res) => {
 
     res.status(201).json({
       message: 'User registered successfully',
-      user: { id: userId, name, email, role },
+      user: { id: userId, name: fullName, email, role },
       token
     });
   } catch (error) {
-    console.error('Registration error:', error.message); // Provide more specific error message
-
+    console.error('Registration error:', error.message);
     res.status(500).json({ message: 'Error registering user' });
   }
 };
@@ -99,8 +97,7 @@ export const loginUser = async (req, res) => {
       token
     });
   } catch (error) {
-    console.error('Login error:', error.message); // Provide more specific error message
-
+    console.error('Login error:', error.message);
     res.status(500).json({ message: 'Error logging in' });
   }
 };

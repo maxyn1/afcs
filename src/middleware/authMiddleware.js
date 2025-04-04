@@ -1,18 +1,19 @@
 import jwt from 'jsonwebtoken';
+import config from '../config/config.js';
 
 export const authMiddleware = (requireAdmin = false) => {
   return (req, res, next) => {
     // Get token from header
-    const token = req.header('Authorization')?.replace('Bearer ', '');
+    const authHeader = req.headers['authorization'];
+    const token = authHeader && authHeader.split(' ')[1];
 
-    // Check if no token
     if (!token) {
-      return res.status(401).json({ message: 'No token, authorization denied' });
+      return res.status(401).json({ message: 'Authentication required' });
     }
 
     try {
-      // Verify token
-      const decoded = jwt.verify(token, process.env.JWT_SECRET);
+      // Verify token using config secret
+      const decoded = jwt.verify(token, config.jwtSecret);
 
       // Check for admin routes if required
       if (requireAdmin && 
@@ -25,7 +26,7 @@ export const authMiddleware = (requireAdmin = false) => {
       req.user = decoded;
       next();
     } catch (err) {
-      res.status(401).json({ message: 'Token is not valid' });
+      return res.status(403).json({ message: 'Invalid or expired token' });
     }
   };
 };

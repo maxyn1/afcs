@@ -13,10 +13,11 @@ export default {
   db: {
     host: process.env.DB_HOST || 'localhost',
     user: process.env.DB_USER || 'root',
-    password: process.env.DB_PASSWORD || '',
-    database: process.env.DB_NAME || 'transport_management',
+    password: process.env.DB_PASSWORD || 'your_database_password',
+    database: process.env.DB_NAME || '',//This is one is not needed since it is being handledin the env file that is what the database.js script will make when it runs but for testing you can add your through here
   },
   app: {
     port: process.env.PORT || 3000,
   },
+  jwtSecret: process.env.JWT_SECRET || 'your-secret-key',
 };

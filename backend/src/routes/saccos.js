@@ -27,29 +27,21 @@ router.get('/', async (req, res) => {
       LEFT JOIN vehicles v ON v.sacco_id = s.id AND v.status = 'active'
       LEFT JOIN trips t ON t.vehicle_id = v.id
       LEFT JOIN routes r ON r.id = t.route_id
-      WHERE s.status = 'active'
+      WHERE s.status != 'inactive'
       GROUP BY s.id
+      ORDER BY s.id DESC
     `);
-    console.log('Found SACCOs:', saccos);
-    res.json(saccos);
+    
+    res.json(saccos.map(sacco => ({
+      ...sacco,
+      vehicle_count: Number(sacco.vehicle_count) || 0,
+      route_count: Number(sacco.route_count) || 0
+    })));
   } catch (error) {
     console.error('Error fetching SACCOs:', error);
-    res.status(500).json({ message: 'Error fetching SACCOs', error: error.message });
-  }
-});
-
-// Add new SACCO
-router.post('/', authMiddleware(), async (req, res) => {
-  try {
-    const { name, registrationNumber, contactEmail, contactPhone } = req.body;
-    const [result] = await pool.query(
-      'INSERT INTO saccos (name, registration_number, contact_email, contact_phone, status) VALUES (?, ?, ?, ?, ?)',
-      [name, registrationNumber, contactEmail, contactPhone, 'active']
-    );
-    res.status(201).json({ id: result.insertId, message: 'SACCO created successfully' });
-  } catch (error) {
-    console.error('Error creating SACCO:', error);
-    res.status(500).json({ message: 'Error creating SACCO' });
+    res.status(500).json({ 
+      message: 'Failed to fetch SACCOs'
+    });
   }
 });
 
@@ -77,47 +69,160 @@ router.get('/:id', async (req, res) => {
       return res.status(404).json({ message: 'SACCO not found' });
     }
 
-    // Get vehicles for this SACCO
+    // Get active vehicles for this SACCO
     const [vehicles] = await pool.query(
-      'SELECT id, registration_number, capacity, status FROM vehicles WHERE sacco_id = ?',
+      `SELECT id, registration_number, capacity, status 
+       FROM vehicles 
+       WHERE sacco_id = ? AND status != 'retired'
+       ORDER BY registration_number`,
       [id]
     );
 
     // Combine the data
     const saccoData = {
       ...saccos[0],
-      vehicles
+      vehicles,
+      vehicle_count: Number(saccos[0].vehicle_count) || 0,
+      route_count: Number(saccos[0].route_count) || 0
     };
 
     console.log('SACCO data:', saccoData);
     res.json(saccoData);
   } catch (error) {
     console.error('Error fetching SACCO details:', error);
-    res.status(500).json({ message: 'Error fetching SACCO details', error: error.message });
+    res.status(500).json({ message: 'Failed to fetch SACCO details' });
   }
 });
 
-// Update SACCO
+// Add new SACCO with validation
+router.post('/', authMiddleware(), async (req, res) => {
+  try {
+    const { name, registration_number, contact_email, contact_phone } = req.body;
+
+    // Validate required fields with better naming
+    const requiredFields = {
+      name: name?.trim(),
+      registration_number: registration_number?.trim(),
+      contact_email: contact_email?.trim(),
+      contact_phone: contact_phone?.trim()
+    };
+
+    const missingFields = Object.entries(requiredFields)
+      .filter(([_, value]) => !value)
+      .map(([key]) => key);
+
+    if (missingFields.length > 0) {
+      return res.status(400).json({
+        message: 'Missing required fields',
+        fields: missingFields
+      });
+    }
+
+    // Email format validation
+    if (!contact_email.match(/^[^\s@]+@[^\s@]+\.[^\s@]+$/)) {
+      return res.status(400).json({ message: 'Invalid email format' });
+    }
+
+    // Check for existing SACCO
+    const [existing] = await pool.query(
+      `SELECT id FROM saccos WHERE 
+       name = ? OR registration_number = ? OR 
+       contact_email = ? OR contact_phone = ?`,
+      [name, registration_number, contact_email, contact_phone]
+    );
+
+    if (existing.length > 0) {
+      return res.status(409).json({ 
+        message: 'SACCO with similar details already exists' 
+      });
+    }
+
+    // Insert new SACCO
+    const [result] = await pool.query(
+      `INSERT INTO saccos (
+        name, registration_number, contact_email, 
+        contact_phone, status
+      ) VALUES (?, ?, ?, ?, 'active')`,
+      [name, registration_number, contact_email, contact_phone]
+    );
+
+    const newSacco = {
+      id: result.insertId,
+      name,
+      registration_number,
+      contact_email,
+      contact_phone,
+      status: 'active',
+      vehicle_count: 0,
+      route_count: 0
+    };
+
+    res.status(201).json(newSacco);
+  } catch (error) {
+    console.error('Error creating SACCO:', error);
+    res.status(500).json({ 
+      message: 'Failed to create SACCO',
+      error: error.message
+    });
+  }
+});
+
+// Update SACCO with validation
 router.put('/:id', authMiddleware(), async (req, res) => {
   try {
     const { id } = req.params;
     const { name, registration_number, contact_email, contact_phone } = req.body;
-    
+
+    // Check if SACCO exists
+    const [existing] = await pool.query(
+      'SELECT * FROM saccos WHERE id = ?',
+      [id]
+    );
+
+    if (existing.length === 0) {
+      return res.status(404).json({ message: 'SACCO not found' });
+    }
+
+    // Check for duplicates excluding current SACCO
+    const [duplicates] = await pool.query(
+      `SELECT id FROM saccos WHERE 
+       (name = ? OR registration_number = ? OR 
+        contact_email = ? OR contact_phone = ?) AND id != ?`,
+      [name, registration_number, contact_email, contact_phone, id]
+    );
+
+    if (duplicates.length > 0) {
+      return res.status(409).json({ 
+        message: 'Another SACCO with similar details exists' 
+      });
+    }
+
     const [result] = await pool.query(
       `UPDATE saccos 
-       SET name = ?, registration_number = ?, contact_email = ?, contact_phone = ?
+       SET name = ?, registration_number = ?, 
+           contact_email = ?, contact_phone = ?
        WHERE id = ?`,
       [name, registration_number, contact_email, contact_phone, id]
     );
 
     if (result.affectedRows === 0) {
-      return res.status(404).json({ message: 'SACCO not found' });
+      return res.status(404).json({ message: 'Update failed' });
     }
 
-    res.json({ id, name, registration_number, contact_email, contact_phone });
+    res.json({ 
+      id: Number(id), 
+      name, 
+      registration_number, 
+      contact_email, 
+      contact_phone,
+      message: 'SACCO updated successfully'
+    });
   } catch (error) {
     console.error('Error updating SACCO:', error);
-    res.status(500).json({ message: 'Error updating SACCO' });
+    res.status(500).json({ 
+      message: 'Error updating SACCO',
+      error: error.message 
+    });
   }
 });
 

@@ -5,7 +5,7 @@ import { Label } from "@/components/ui/label";
 import { useState } from "react";
 import { toast } from "@/components/ui/use-toast";
 
-interface RegisterSaccoData {
+interface SaccoFormData {
   name: string;
   registration_number: string;
   contact_email: string;
@@ -15,12 +15,12 @@ interface RegisterSaccoData {
 interface Props {
   open: boolean;
   onClose: () => void;
-  onSubmit: (data: RegisterSaccoData) => Promise<void>;
+  onSubmit: (data: SaccoFormData) => Promise<void>;
 }
 
 export function RegisterSaccoModal({ open, onClose, onSubmit }: Props) {
   const [loading, setLoading] = useState(false);
-  const [formData, setFormData] = useState<RegisterSaccoData>({
+  const [formData, setFormData] = useState<SaccoFormData>({
     name: '',
     registration_number: '',
     contact_email: '',

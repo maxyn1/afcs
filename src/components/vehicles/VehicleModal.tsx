@@ -16,6 +16,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Vehicle } from "@/services/vehicleService";
+import { useToast } from "@/hooks/use-toast";
 
 interface Props {
   vehicle?: Vehicle;
@@ -26,6 +27,8 @@ interface Props {
 }
 
 export function VehicleModal({ vehicle, open, onClose, onSubmit, saccos }: Props) {
+  const { toast } = useToast();
+
   const [formData, setFormData] = useState<Partial<Vehicle>>({
     registration_number: '',
     sacco_id: undefined,
@@ -46,8 +49,45 @@ export function VehicleModal({ vehicle, open, onClose, onSubmit, saccos }: Props
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    await onSubmit(formData);
-    onClose();
+    
+    // Validate form data
+    if (!formData.registration_number?.trim()) {
+      toast({
+        title: "Validation Error",
+        description: "Registration number is required",
+        variant: "destructive"
+      });
+      return;
+    }
+
+    if (!formData.sacco_id) {
+      toast({
+        title: "Validation Error",
+        description: "Please select a SACCO",
+        variant: "destructive"
+      });
+      return;
+    }
+
+    if (!formData.capacity || formData.capacity <= 0) {
+      toast({
+        title: "Validation Error",
+        description: "Please enter a valid capacity",
+        variant: "destructive"
+      });
+      return;
+    }
+
+    try {
+      await onSubmit(formData);
+      onClose();
+    } catch (error) {
+      toast({
+        title: "Error",
+        description: error.message || "Failed to save vehicle",
+        variant: "destructive"
+      });
+    }
   };
 
   return (

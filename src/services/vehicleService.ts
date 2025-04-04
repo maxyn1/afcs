@@ -22,8 +22,24 @@ class VehicleService {
   }
 
   async updateVehicle(id: number, data: Partial<Vehicle>) {
-    const response = await api.put(`/admin/vehicles/${id}`, data);
-    return response.data;
+    try {
+      const response = await api.put(`/admin/vehicles/${id}`, data);
+      
+      if (!response.data) {
+        throw new Error('No data received from server');
+      }
+      
+      return response.data;
+    } catch (error) {
+      if (error.response?.data?.message) {
+        throw new Error(error.response.data.message);
+      } else if (error.response?.status === 404) {
+        throw new Error('Vehicle not found');
+      } else if (error.response?.status === 409) {
+        throw new Error('Registration number already in use');
+      }
+      throw new Error('Failed to update vehicle');
+    }
   }
 
   async deleteVehicle(id: number) {

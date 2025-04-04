@@ -90,10 +90,14 @@ const AdminSettings = () => {
 
               <div className="space-y-2">
                 <Label htmlFor="system-timezone">System Timezone</Label>
+                <Label htmlFor="system-timezone">System Timezone</Label>
+                <Label htmlFor="system-timezone">System Timezone</Label>
+                <Label htmlFor="system-timezone">System Timezone</Label>
                 <select 
                   id="system-timezone" 
                   className="w-full h-10 px-3 rounded-md border border-input bg-background"
                   defaultValue="Africa/Nairobi"
+                  aria-label="System Timezone"
                 >
                   <option value="Africa/Nairobi">East Africa Time (EAT) - Nairobi</option>
                   <option value="UTC">Coordinated Universal Time (UTC)</option>

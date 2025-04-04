@@ -7,6 +7,8 @@ import { AuthProvider } from "./contexts/AuthContext";
 import { ProtectedRoute } from "./components/ProtectedRoute";
 import Layout from "./components/Layout";
 import AdminLayout from "./components/AdminLayout";
+
+// Pages
 import LandingPage from "./pages/landingpage";
 import Login from "./pages/Login";
 import Register from "./pages/Register";
@@ -24,6 +26,7 @@ import Vehicles from "./pages/admin/Vehicles";
 import Saccos from "./pages/admin/Saccos";
 import AdminSettings from "./pages/admin/AdminSettings";
 import TransactionAnalytics from "./pages/admin/TransactionAnalytics";
+import Drivers from "./pages/admin/Drivers";
 
 const queryClient = new QueryClient();
 
@@ -41,92 +44,77 @@ const App = () => (
             <Route path="/register" element={<Register />} />
             
             {/* User protected routes */}
-            <Route path="/dashboard" element={
-              <ProtectedRoute>
-                <Layout>
-                  <Dashboard />
-                </Layout>
-              </ProtectedRoute>
-            } />
-            <Route path="/transactions" element={
-              <ProtectedRoute>
-                <Layout>
-                  <TransactionHistory />
-                </Layout>
-              </ProtectedRoute>
-            } />
-            <Route path="/profile" element={
-              <ProtectedRoute>
-                <Layout>
-                  <Profile />
-                </Layout>
-              </ProtectedRoute>
-            } />
-            <Route path="/support" element={
-              <ProtectedRoute>
-                <Layout>
-                  <Support />
-                </Layout>
-              </ProtectedRoute>
-            } />
-            <Route path="/wallet" element={
-              <ProtectedRoute>
-                <Layout>
-                  <Wallet />
-                </Layout>
-              </ProtectedRoute>
-            } />
-            <Route path="/payment-methods" element={
-              <ProtectedRoute>
-                <Layout>
-                  <PaymentMethods />
-                </Layout>
-              </ProtectedRoute>
-            } />
+            <Route
+              path="/dashboard"
+              element={
+                <ProtectedRoute>
+                  <Layout>
+                    <Dashboard />
+                  </Layout>
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/transactions"
+              element={
+                <ProtectedRoute>
+                  <Layout>
+                    <TransactionHistory />
+                  </Layout>
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/profile"
+              element={
+                <ProtectedRoute>
+                  <Layout>
+                    <Profile />
+                  </Layout>
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/support"
+              element={
+                <ProtectedRoute>
+                  <Layout>
+                    <Support />
+                  </Layout>
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/wallet"
+              element={
+                <ProtectedRoute>
+                  <Layout>
+                    <Wallet />
+                  </Layout>
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/payment-methods"
+              element={
+                <ProtectedRoute>
+                  <Layout>
+                    <PaymentMethods />
+                  </Layout>
+                </ProtectedRoute>
+              }
+            />
             
             {/* Admin protected routes */}
-            <Route path="/admin" element={
-              <ProtectedRoute requireAdmin>
-                <AdminLayout>
-                  <AdminDashboard />
-                </AdminLayout>
-              </ProtectedRoute>
-            } />
-            <Route path="/admin/users" element={
-              <ProtectedRoute requireAdmin>
-                <AdminLayout>
-                  <Users />
-                </AdminLayout>
-              </ProtectedRoute>
-            } />
-            <Route path="/admin/vehicles" element={
-              <ProtectedRoute requireAdmin>
-                <AdminLayout>
-                  <Vehicles />
-                </AdminLayout>
-              </ProtectedRoute>
-            } />
-            <Route path="/admin/saccos" element={
-              <ProtectedRoute requireAdmin>
-                <AdminLayout>
-                  <Saccos />
-                </AdminLayout>
-              </ProtectedRoute>
-            } />
-            <Route path="/admin/settings" element={
-              <ProtectedRoute requireAdmin>
-                <AdminLayout>
-                  <AdminSettings />
-                </AdminLayout>
-              </ProtectedRoute>
-            } />
-            <Route path="/admin/analytics" element={
-              <ProtectedRoute requireAdmin>
-                <AdminLayout>
-                  <TransactionAnalytics />
-                </AdminLayout>
-              </ProtectedRoute>
-            } />
+            <Route path="/admin" element={<ProtectedRoute requireAdmin><AdminLayout><></></AdminLayout></ProtectedRoute>}>
+              <Route index element={<AdminDashboard />} />
+              <Route path="users" element={<Users />} />
+              <Route path="vehicles" element={<Vehicles />} />
+              <Route path="saccos" element={<Saccos />} />
+              <Route path="settings" element={<AdminSettings />} />
+              <Route path="analytics" element={<TransactionAnalytics />} />
+              <Route path="drivers" element={<Drivers />} />
+            </Route>
             
             {/* Catch-all route */}
             <Route path="*" element={<Navigate to="/" replace />} />

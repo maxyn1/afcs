@@ -1,3 +1,4 @@
+
 import React, { createContext, useState, useContext, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import authService from '../services/authService';
@@ -6,7 +7,7 @@ interface User {
   id: string;
   name: string;
   email: string;
-  role: 'passenger' | 'sacco_admin' | 'system_admin';
+  role: 'passenger' | 'driver' | 'sacco_admin' | 'system_admin';
 }
 
 interface AuthContextType {
@@ -15,6 +16,9 @@ interface AuthContextType {
   logout: () => void;
   isAuthenticated: boolean;
   isAdmin: boolean;
+  isDriver: boolean;
+  isSaccoAdmin: boolean;
+  isSystemAdmin: boolean;
 }
 
 const AuthContext = createContext<AuthContextType>({
@@ -22,7 +26,10 @@ const AuthContext = createContext<AuthContextType>({
   login: async () => {},
   logout: () => {},
   isAuthenticated: false,
-  isAdmin: false
+  isAdmin: false,
+  isDriver: false,
+  isSaccoAdmin: false,
+  isSystemAdmin: false
 });
 
 export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
@@ -57,8 +64,13 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     setUser(userData);
     setIsAuthenticated(true);
     
-    if (userData.role === 'system_admin' || userData.role === 'sacco_admin') {
+    // Redirect based on user role
+    if (userData.role === 'system_admin') {
       navigate('/admin');
+    } else if (userData.role === 'sacco_admin') {
+      navigate('/sacco-admin');
+    } else if (userData.role === 'driver') {
+      navigate('/driver');
     } else {
       navigate('/dashboard');
     }
@@ -70,7 +82,11 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     setIsAuthenticated(false);
   };
 
+  // Role-based flags
   const isAdmin = user?.role === 'system_admin' || user?.role === 'sacco_admin';
+  const isDriver = user?.role === 'driver';
+  const isSaccoAdmin = user?.role === 'sacco_admin';
+  const isSystemAdmin = user?.role === 'system_admin';
 
   if (isLoading) {
     return <div>Loading...</div>;
@@ -82,7 +98,10 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       login, 
       logout, 
       isAuthenticated,
-      isAdmin 
+      isAdmin,
+      isDriver,
+      isSaccoAdmin,
+      isSystemAdmin
     }}>
       {children}
     </AuthContext.Provider>

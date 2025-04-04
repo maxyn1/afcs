@@ -1,3 +1,4 @@
+
 import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
@@ -7,6 +8,8 @@ import { AuthProvider } from "./contexts/AuthContext";
 import { ProtectedRoute } from "./components/ProtectedRoute";
 import Layout from "./components/Layout";
 import AdminLayout from "./components/AdminLayout";
+import DriverLayout from "./components/DriverLayout";
+import SaccoAdminLayout from "./components/SaccoAdminLayout";
 import LandingPage from "./pages/landingpage";
 import Login from "./pages/Login";
 import Register from "./pages/Register";
@@ -24,6 +27,12 @@ import Vehicles from "./pages/admin/Vehicles";
 import Saccos from "./pages/admin/Saccos";
 import AdminSettings from "./pages/admin/AdminSettings";
 import TransactionAnalytics from "./pages/admin/TransactionAnalytics";
+
+// Driver pages
+import DriverDashboard from "./pages/driver/DriverDashboard";
+
+// SACCO Admin pages
+import SaccoAdminDashboard from "./pages/sacco/SaccoAdminDashboard";
 
 const queryClient = new QueryClient();
 
@@ -86,45 +95,87 @@ const App = () => (
             
             {/* Admin protected routes */}
             <Route path="/admin" element={
-              <ProtectedRoute requireAdmin>
+              <ProtectedRoute requireSystemAdmin>
                 <AdminLayout>
                   <AdminDashboard />
                 </AdminLayout>
               </ProtectedRoute>
             } />
             <Route path="/admin/users" element={
-              <ProtectedRoute requireAdmin>
+              <ProtectedRoute requireSystemAdmin>
                 <AdminLayout>
                   <Users />
                 </AdminLayout>
               </ProtectedRoute>
             } />
             <Route path="/admin/vehicles" element={
-              <ProtectedRoute requireAdmin>
+              <ProtectedRoute requireSystemAdmin>
                 <AdminLayout>
                   <Vehicles />
                 </AdminLayout>
               </ProtectedRoute>
             } />
             <Route path="/admin/saccos" element={
-              <ProtectedRoute requireAdmin>
+              <ProtectedRoute requireSystemAdmin>
                 <AdminLayout>
                   <Saccos />
                 </AdminLayout>
               </ProtectedRoute>
             } />
             <Route path="/admin/settings" element={
-              <ProtectedRoute requireAdmin>
+              <ProtectedRoute requireSystemAdmin>
                 <AdminLayout>
                   <AdminSettings />
                 </AdminLayout>
               </ProtectedRoute>
             } />
             <Route path="/admin/analytics" element={
-              <ProtectedRoute requireAdmin>
+              <ProtectedRoute requireSystemAdmin>
                 <AdminLayout>
                   <TransactionAnalytics />
                 </AdminLayout>
+              </ProtectedRoute>
+            } />
+            
+            {/* Driver protected routes */}
+            <Route path="/driver" element={
+              <ProtectedRoute requireDriver>
+                <DriverLayout>
+                  <DriverDashboard />
+                </DriverLayout>
+              </ProtectedRoute>
+            } />
+            
+            {/* Add driver routes for the other sections */}
+            <Route path="/driver/profile" element={
+              <ProtectedRoute requireDriver>
+                <DriverLayout>
+                  <div className="space-y-6">
+                    <h1 className="text-3xl font-bold">Driver Profile</h1>
+                    <p className="text-muted-foreground">This page is under construction.</p>
+                  </div>
+                </DriverLayout>
+              </ProtectedRoute>
+            } />
+            
+            {/* SACCO Admin protected routes */}
+            <Route path="/sacco-admin" element={
+              <ProtectedRoute requireSaccoAdmin>
+                <SaccoAdminLayout>
+                  <SaccoAdminDashboard />
+                </SaccoAdminLayout>
+              </ProtectedRoute>
+            } />
+            
+            {/* Add SACCO Admin routes for the other sections */}
+            <Route path="/sacco-admin/drivers" element={
+              <ProtectedRoute requireSaccoAdmin>
+                <SaccoAdminLayout>
+                  <div className="space-y-6">
+                    <h1 className="text-3xl font-bold">Drivers Management</h1>
+                    <p className="text-muted-foreground">This page is under construction.</p>
+                  </div>
+                </SaccoAdminLayout>
               </ProtectedRoute>
             } />
             

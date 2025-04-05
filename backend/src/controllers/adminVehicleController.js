@@ -46,14 +46,76 @@ class AdminVehicleController {
     try {
       const { id } = req.params;
       const { registration_number, sacco_id, capacity, status } = req.body;
-      await this.pool.query(
-        'UPDATE vehicles SET registration_number = ?, sacco_id = ?, capacity = ?, status = ? WHERE id = ?',
+
+      // Validate required fields
+      if (!registration_number || !sacco_id || !capacity) {
+        return res.status(400).json({
+          message: 'Missing required fields',
+          details: {
+            registration_number: !registration_number ? 'Registration number is required' : null,
+            sacco_id: !sacco_id ? 'SACCO is required' : null,
+            capacity: !capacity ? 'Capacity is required' : null
+          }
+        });
+      }
+
+      // Check if vehicle exists first
+      const [existingVehicle] = await this.pool.query(
+        'SELECT id FROM vehicles WHERE id = ?',
+        [id]
+      );
+
+      if (existingVehicle.length === 0) {
+        return res.status(404).json({ message: 'Vehicle not found' });
+      }
+
+      // Check if registration number is already used by another vehicle
+      const [duplicateReg] = await this.pool.query(
+        'SELECT id FROM vehicles WHERE registration_number = ? AND id != ?',
+        [registration_number, id]
+      );
+
+      if (duplicateReg.length > 0) {
+        return res.status(409).json({ 
+          message: 'Registration number already in use by another vehicle' 
+        });
+      }
+
+      // Validate SACCO exists
+      const [saccoExists] = await this.pool.query(
+        'SELECT id FROM saccos WHERE id = ?',
+        [sacco_id]
+      );
+
+      if (saccoExists.length === 0) {
+        return res.status(400).json({ message: 'Invalid SACCO ID' });
+      }
+
+      // Perform the update
+      const [result] = await this.pool.query(
+        `UPDATE vehicles 
+         SET registration_number = ?, 
+             sacco_id = ?, 
+             capacity = ?, 
+             status = ?
+         WHERE id = ?`,
         [registration_number, sacco_id, capacity, status, id]
       );
-      res.json({ message: 'Vehicle updated successfully' });
+
+      if (result.affectedRows === 0) {
+        return res.status(400).json({ message: 'Update failed' });
+      }
+
+      res.json({ 
+        message: 'Vehicle updated successfully',
+        vehicle: { id, registration_number, sacco_id, capacity, status }
+      });
     } catch (error) {
       console.error('Error updating vehicle:', error);
-      res.status(500).json({ message: 'Error updating vehicle' });
+      res.status(500).json({ 
+        message: 'Error updating vehicle',
+        error: process.env.NODE_ENV === 'development' ? error.message : undefined
+      });
     }
   }
 

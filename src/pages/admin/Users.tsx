@@ -82,7 +82,6 @@ const Users = () => {
     status: "active"
   });
 
-  // Fetch users
   const loadUsers = async () => {
     try {
       setIsLoading(true);
@@ -104,7 +103,6 @@ const Users = () => {
     loadUsers();
   }, []);
 
-  // Create user
   const handleCreateUser = async () => {
     try {
       await adminService.createUser(formData);
@@ -124,7 +122,6 @@ const Users = () => {
     }
   };
 
-  // Update user
   const handleUpdateUser = async () => {
     if (!selectedUser) return;
     
@@ -152,7 +149,6 @@ const Users = () => {
     }
   };
 
-  // Delete user
   const handleDeleteUser = async (userId: string) => {
     if (!confirm('Are you sure you want to delete this user?')) return;
     
@@ -173,7 +169,6 @@ const Users = () => {
     }
   };
 
-  // Change user role
   const handleRoleChange = async (userId: string, newRole: string) => {
     try {
       await adminService.changeUserRole(userId, newRole);
@@ -220,7 +215,6 @@ const Users = () => {
         </Button>
       </div>
       
-      {/* Add User Dialog */}
       <Dialog open={isAddDialogOpen} onOpenChange={setIsAddDialogOpen}>
         <DialogContent>
           <DialogHeader>
@@ -267,7 +261,6 @@ const Users = () => {
         </DialogContent>
       </Dialog>
 
-      {/* Edit User Dialog */}
       <Dialog open={isEditDialogOpen} onOpenChange={setIsEditDialogOpen}>
         <DialogContent>
           <DialogHeader>

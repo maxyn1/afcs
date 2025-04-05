@@ -5,7 +5,7 @@ import DashboardController from '../controllers/dashboardController.js';
 import { connectDB } from '../config/database.js';
 import { authMiddleware } from '../middleware/authMiddleware.js';
 import { adminMiddleware } from '../middleware/adminMiddleware.js';
-
+import AdminDashboardController from '../controllers/AdminDashboardController.js';
 const router = express.Router();
 
 // Controller factory with caching
@@ -133,31 +133,15 @@ router.delete('/vehicles/:id', async (req, res) => {
   }
 });
 
-// Dashboard routes
-router.get('/dashboard/stats', async (req, res) => {
-  try {
-    const controller = await getDashboardController();
-    return controller.getStats(req, res);
-  } catch (error) {
-    console.error('Route error:', error);
-    return res.status(500).json({ message: 'Server error' });
-  }
-});
 
-router.get('/dashboard/recent-transactions', async (req, res) => {
-  try {
-    const controller = await getDashboardController();
-    return controller.getRecentTransactions(req, res);
-  } catch (error) {
-    console.error('Route error:', error);
-    return res.status(500).json({ message: 'Server error' });
-  }
-});
+// Add this to the controller factory section
+const getAdminDashboardController = createControllerFactory(AdminDashboardController);
 
-router.get('/dashboard/active-saccos', async (req, res) => {
+// Add this route
+router.get('/dashboard-stats', async (req, res) => {
   try {
-    const controller = await getDashboardController();
-    return controller.getActiveSaccos(req, res);
+    const controller = await getAdminDashboardController();
+    return controller.getDashboardStats(req, res);
   } catch (error) {
     console.error('Route error:', error);
     return res.status(500).json({ message: 'Server error' });

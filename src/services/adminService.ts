@@ -66,6 +66,16 @@ class AdminService {
     const { data } = await apiService.put(`${this.API_URL}/users/${userId}/role`, { role });
     return data;
   }
+
+  async getDashboardStats() {
+    try {
+      const { data } = await apiService.get(`${this.API_URL}/dashboard-stats`);
+      return data;
+    } catch (error) {
+      console.error('Error fetching dashboard stats:', error);
+      throw error;
+    }
+  }
 }
 
 export const adminService = new AdminService();

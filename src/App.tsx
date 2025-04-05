@@ -1,3 +1,4 @@
+
 import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
@@ -7,8 +8,8 @@ import { AuthProvider } from "./contexts/AuthContext";
 import { ProtectedRoute } from "./components/ProtectedRoute";
 import Layout from "./components/Layout";
 import AdminLayout from "./components/AdminLayout";
-
-// Pages
+import DriverLayout from "./components/DriverLayout";
+import SaccoAdminLayout from "./components/SaccoAdminLayout";
 import LandingPage from "./pages/landingpage";
 import Login from "./pages/Login";
 import Register from "./pages/Register";
@@ -27,6 +28,19 @@ import Saccos from "./pages/admin/Saccos";
 import AdminSettings from "./pages/admin/AdminSettings";
 import TransactionAnalytics from "./pages/admin/TransactionAnalytics";
 import Drivers from "./pages/admin/Drivers";
+
+// Driver pages
+import DriverDashboard from "./pages/driver/DriverDashboard";
+import DriverProfile from "./pages/driver/DriverProfile";
+import DriverTrips from "./pages/driver/DriverTrips";
+import DriverVehicle from "./pages/driver/DriverVehicle";
+
+// SACCO Admin pages
+import SaccoAdminDashboard from "./pages/sacco/SaccoAdminDashboard";
+import SaccoDrivers from "./pages/sacco/SaccoDrivers";
+import SaccoVehicles from "./pages/sacco/SaccoVehicles";
+import SaccoRoutes from "./pages/sacco/SaccoRoutes";
+import SaccoAnalytics from "./pages/sacco/SaccoAnalytics";
 
 const queryClient = new QueryClient();
 
@@ -115,6 +129,73 @@ const App = () => (
               <Route path="analytics" element={<TransactionAnalytics />} />
               <Route path="drivers" element={<Drivers />} />
             </Route>
+            
+            {/* Driver protected routes */}
+            <Route path="/driver" element={
+              <ProtectedRoute requireDriver>
+                <DriverLayout>
+                  <DriverDashboard />
+                </DriverLayout>
+              </ProtectedRoute>
+            } />
+            <Route path="/driver/profile" element={
+              <ProtectedRoute requireDriver>
+                <DriverLayout>
+                  <DriverProfile />
+                </DriverLayout>
+              </ProtectedRoute>
+            } />
+            <Route path="/driver/trips" element={
+              <ProtectedRoute requireDriver>
+                <DriverLayout>
+                  <DriverTrips />
+                </DriverLayout>
+              </ProtectedRoute>
+            } />
+            <Route path="/driver/vehicle" element={
+              <ProtectedRoute requireDriver>
+                <DriverLayout>
+                  <DriverVehicle />
+                </DriverLayout>
+              </ProtectedRoute>
+            } />
+            
+            {/* SACCO Admin protected routes */}
+            <Route path="/sacco-admin" element={
+              <ProtectedRoute requireSaccoAdmin>
+                <SaccoAdminLayout>
+                  <SaccoAdminDashboard />
+                </SaccoAdminLayout>
+              </ProtectedRoute>
+            } />
+            <Route path="/sacco-admin/drivers" element={
+              <ProtectedRoute requireSaccoAdmin>
+                <SaccoAdminLayout>
+                  <SaccoDrivers />
+                </SaccoAdminLayout>
+              </ProtectedRoute>
+            } />
+            <Route path="/sacco-admin/vehicles" element={
+              <ProtectedRoute requireSaccoAdmin>
+                <SaccoAdminLayout>
+                  <SaccoVehicles />
+                </SaccoAdminLayout>
+              </ProtectedRoute>
+            } />
+            <Route path="/sacco-admin/routes" element={
+              <ProtectedRoute requireSaccoAdmin>
+                <SaccoAdminLayout>
+                  <SaccoRoutes />
+                </SaccoAdminLayout>
+              </ProtectedRoute>
+            } />
+            <Route path="/sacco-admin/analytics" element={
+              <ProtectedRoute requireSaccoAdmin>
+                <SaccoAdminLayout>
+                  <SaccoAnalytics />
+                </SaccoAdminLayout>
+              </ProtectedRoute>
+            } />
             
             {/* Catch-all route */}
             <Route path="*" element={<Navigate to="/" replace />} />

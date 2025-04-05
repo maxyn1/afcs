@@ -18,9 +18,21 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import { Pagination, PaginationContent, PaginationItem, PaginationLink, PaginationNext, PaginationPrevious } from "@/components/ui/pagination";
+import api from "@/services/api";
+
+interface LocalVehicle {
+  id: number;
+  registration_number: string;
+  sacco_id: number;
+  sacco_name: string;
+  capacity: number;
+  status: string;
+  route?: string;
+}
 
 const Vehicles = () => {
   const [vehicles, setVehicles] = useState<Vehicle[]>([]);
+  const [saccos, setSaccos] = useState<{ id: number; name: string }[]>([]);
   const [searchQuery, setSearchQuery] = useState("");
   const [filterSacco, setFilterSacco] = useState("all");
   const [isLoading, setIsLoading] = useState(true);
@@ -52,6 +64,28 @@ const Vehicles = () => {
       setIsLoading(false);
     }
   };
+
+  // Fetch SACCOs
+  useEffect(() => {
+    const fetchSaccos = async () => {
+      try {
+        const response = await api.get('/saccos');
+        setSaccos(response.data.map((sacco: { id: number; name: string }) => ({
+          id: sacco.id,
+          name: sacco.name
+        })));
+      } catch (error) {
+        console.error('Error fetching SACCOs:', error);
+        toast({
+          title: "Error",
+          description: "Failed to load SACCOs",
+          variant: "destructive"
+        });
+      }
+    };
+
+    fetchSaccos();
+  }, []);
 
   const handleCreateUpdate = async (data: Partial<Vehicle>) => {
     try {
@@ -103,15 +137,6 @@ const Vehicles = () => {
     const matchesSacco = filterSacco === "all" || vehicle.sacco_id.toString() === filterSacco;
     return matchesSearch && matchesSacco;
   });
-
-  // Replace the existing uniqueSaccos calculation with this:
-  const uniqueSaccos = Array.from(
-    new Map(
-      vehicles
-        .filter(v => v.sacco_id && v.sacco_name)
-        .map(v => [v.sacco_id, { id: v.sacco_id, name: v.sacco_name }])
-    ).values()
-  ).sort((a, b) => a.name.localeCompare(b.name));
 
   // Pagination logic
   const totalPages = Math.ceil(filteredVehicles.length / itemsPerPage);
@@ -215,7 +240,7 @@ const Vehicles = () => {
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="all">All SACCOs</SelectItem>
-                  {uniqueSaccos.map((sacco) => (
+                  {saccos.map((sacco) => (
                     <SelectItem key={sacco.id} value={sacco.id.toString()}>
                       {sacco.name}
                     </SelectItem>
@@ -331,7 +356,7 @@ const Vehicles = () => {
         open={isModalOpen}
         onClose={() => setIsModalOpen(false)}
         onSubmit={handleCreateUpdate}
-        saccos={uniqueSaccos} // This will now have unique SACCOs
+        saccos={saccos}
       />
 
       <AlertDialog open={!!deleteVehicleId} onOpenChange={() => setDeleteVehicleId(null)}>

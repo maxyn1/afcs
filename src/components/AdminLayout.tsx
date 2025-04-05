@@ -1,6 +1,5 @@
-
 import { useState } from "react";
-import { Link, useLocation, useNavigate } from "react-router-dom";
+import { Link, useLocation, useNavigate, Outlet } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { 
   LayoutDashboard, 
@@ -27,10 +26,12 @@ const AdminLayout: React.FC<AdminLayoutProps> = ({ children }) => {
   const navItems = [
     { path: "/admin", label: "Overview", icon: <LayoutDashboard size={20} /> },
     { path: "/admin/users", label: "Users", icon: <Users size={20} /> },
+    { path: "/admin/drivers", label: "Drivers", icon: <Users size={20} /> },
     { path: "/admin/vehicles", label: "Vehicles", icon: <Bus size={20} /> },
     { path: "/admin/saccos", label: "SACCOs", icon: <Building2 size={20} /> },
     { path: "/admin/analytics", label: "Analytics", icon: <BarChart size={20} /> },
     { path: "/admin/settings", label: "Settings", icon: <Settings size={20} /> },
+    
   ];
 
   const toggleMobileMenu = () => {
@@ -117,7 +118,7 @@ const AdminLayout: React.FC<AdminLayoutProps> = ({ children }) => {
       
       <main className="flex-1 p-4">
         <div className="max-w-7xl mx-auto">
-          {children}
+          <Outlet />
         </div>
       </main>
       

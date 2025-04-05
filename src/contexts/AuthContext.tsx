@@ -1,4 +1,3 @@
-
 import React, { createContext, useState, useContext, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import authService from '../services/authService';
@@ -60,19 +59,27 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   }, []);
 
   const login = async (email: string, password: string) => {
-    const userData = await authService.login(email, password);
-    setUser(userData);
-    setIsAuthenticated(true);
-    
-    // Redirect based on user role
-    if (userData.role === 'system_admin') {
-      navigate('/admin');
-    } else if (userData.role === 'sacco_admin') {
-      navigate('/sacco-admin');
-    } else if (userData.role === 'driver') {
-      navigate('/driver');
-    } else {
-      navigate('/dashboard');
+    try {
+      setIsLoading(true);
+      const userData = await authService.login(email, password);
+      
+      if (!userData || !userData.role) {
+        throw new Error('Invalid user data received');
+      }
+
+      setUser(userData);
+      setIsAuthenticated(true);
+      
+      // Ensure we have a valid redirect path
+      const redirectPath = authService.getRedirectPath(userData.role);
+      return navigate(redirectPath, { replace: true });
+    } catch (error) {
+      console.error('Login error:', error);
+      setIsAuthenticated(false);
+      setUser(null);
+      throw error;
+    } finally {
+      setIsLoading(false);
     }
   };
 

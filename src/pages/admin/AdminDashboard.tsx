@@ -4,7 +4,9 @@ import {
   Users, 
   CreditCard, 
   Bus, 
-  Building2
+  Building2,
+  ArrowUpRight,
+  ArrowDownRight
 } from "lucide-react";
 import { useAuth } from "../../contexts/AuthContext";
 import { adminService } from "@/services/adminService";
@@ -124,13 +126,10 @@ const AdminDashboard = () => {
                     <p className="text-sm text-gray-500">{transaction.date}</p>
                   </div>
                 </div>
-              </div>
-            ))
-          )}
-        </div>
-      </CardContent>
-    </Card>
-  );
+              ))}
+            </div>
+          </CardContent>
+        </Card>
 
         <Card>
           <CardHeader>

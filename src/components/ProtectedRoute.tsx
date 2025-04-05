@@ -1,6 +1,6 @@
-
 import { Navigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
+import authService from '../services/authService';
 
 interface ProtectedRouteProps {
   children: React.ReactNode;
@@ -17,28 +17,27 @@ export const ProtectedRoute: React.FC<ProtectedRouteProps> = ({
   requireSaccoAdmin = false,
   requireSystemAdmin = false
 }) => {
-  const { isAuthenticated, isAdmin, isDriver, isSaccoAdmin, isSystemAdmin } = useAuth();
+  const { isAuthenticated, isAdmin, isDriver, isSaccoAdmin, isSystemAdmin, user } = useAuth();
   const location = useLocation();
 
   if (!isAuthenticated) {
     return <Navigate to="/login" state={{ from: location }} replace />;
   }
 
-  // Check role-based permissions
-  if (requireAdmin && !isAdmin) {
-    return <Navigate to="/dashboard" replace />;
+  if (requireSystemAdmin && !isSystemAdmin) {
+    return <Navigate to={authService.getRedirectPath(user?.role)} replace />;
   }
 
   if (requireDriver && !isDriver) {
-    return <Navigate to="/dashboard" replace />;
+    return <Navigate to={authService.getRedirectPath(user?.role)} replace />;
   }
 
   if (requireSaccoAdmin && !isSaccoAdmin) {
-    return <Navigate to="/dashboard" replace />;
+    return <Navigate to={authService.getRedirectPath(user?.role)} replace />;
   }
 
-  if (requireSystemAdmin && !isSystemAdmin) {
-    return <Navigate to="/dashboard" replace />;
+  if (requireAdmin && !isAdmin) {
+    return <Navigate to={authService.getRedirectPath(user?.role)} replace />;
   }
 
   return <>{children}</>;

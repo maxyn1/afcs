@@ -16,7 +16,10 @@ const app = express();
 const PORT = process.env.PORT || 3000;
 
 // Middleware
-app.use(cors());
+app.use(cors({
+  origin: 'http://localhost:8080', // Replace with your frontend URL
+  credentials: true
+}));
 app.use(express.json());
 
 // API Routes
@@ -24,28 +27,31 @@ app.use('/api/users', userRoutes);
 app.use('/api/saccos', saccoRoutes);
 app.use('/api/routes', routeRoutes);
 app.use('/api/vehicles', vehicleRoutes);
-app.use('/api/users/wallet', walletRoutes);
-
-// Add admin routes
+app.use('/api/wallet', walletRoutes);
 app.use('/api/admin', adminRoutes);
 
 // Error handling middleware
 app.use(errorHandler);
 
 // Initialize database and start server
-try {
-  await connectDB();
-  console.log('Database connected successfully');
-  
-  app.listen(PORT, () => {
-    console.log(`Server is running on port ${PORT}`);
-  });
-} catch (error) {
-  console.error('Failed to start server:', error);
-  process.exit(1);
-}
+const startServer = async () => {
+  try {
+    await connectDB();
+    console.log('Database connected successfully');
+    
+    app.listen(PORT, () => {
+      console.log(`Server is running on port ${PORT}`);
+    });
+  } catch (error) {
+    console.error('Failed to start server:', error);
+    process.exit(1);
+  }
+};
+
+startServer();
 
 export default app;
+
 
 
 

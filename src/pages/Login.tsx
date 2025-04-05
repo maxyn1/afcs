@@ -6,6 +6,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Wallet, Lock, Mail, EyeIcon, EyeOffIcon, ArrowLeft } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "../contexts/AuthContext";
+import authService from "../services/authService";
 
 const Login = () => {
   const [email, setEmail] = useState("");
@@ -22,23 +23,18 @@ const Login = () => {
     setIsLoading(true);
     setError(null);
 
-    // Basic email validation
-    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-    if (!emailRegex.test(email)) {
-      setError("Please enter a valid email address");
-      setIsLoading(false);
-      return;
-    }
-
     try {
-      await login(email, password);
+      const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+      if (!emailRegex.test(email)) {
+        setError("Please enter a valid email address");
+        setIsLoading(false);
+        return;
+      }
 
-      toast({
-        title: "Success",
-        description: "Welcome back!",
-        duration: 3000,
-        className: "bg-green-500 text-white",
-      });
+      const user = await login(email, password);
+      const redirectPath = authService.getRedirectPath(user.role);
+      navigate(redirectPath);
+      
     } catch (err) {
       const errorMessage = err instanceof Error 
         ? err.message 

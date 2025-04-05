@@ -3,28 +3,23 @@ import axios from 'axios';
 
 export enum USER_ROLES {
   PASSENGER = 'passenger',
+  DRIVER = 'driver',
   SYSTEM_ADMIN = 'system_admin',
   SACCO_ADMIN = 'sacco_admin'
 }
 
-interface LoginError {
-  message: string;
-  errors?: {
-    email?: string;
-    password?: string;
-    account?: string;
-  };
+interface User {
+  id: string;
+  name: string;
+  email: string;
+  role: USER_ROLES;
+  status: string;
 }
 
 interface LoginResponse {
-  user: {
-    id: string;
-    name: string;
-    email: string;
-    role: 'passenger' | 'sacco_admin' | 'system_admin';
-    token: string;
-  };
   message: string;
+  user: User;
+  token: string;
 }
 
 interface RegisterData {
@@ -53,41 +48,35 @@ interface Vehicle {
 }
 
 class AuthService {
-  private API_URL = '/users'; // Remove /api since it's included in the base URL
+  private API_URL = '/users';
 
-  async login(email: string, password: string): Promise<LoginResponse['user']> {
+  async login(email: string, password: string): Promise<User> {
     try {
       const response = await api.post<LoginResponse>(`${this.API_URL}/login`, { 
         email, 
         password 
       });
 
-      if (response.data.user && response.data.user.token) {
-        localStorage.setItem('user', JSON.stringify(response.data.user));
-        localStorage.setItem('token', response.data.user.token);
-        return response.data.user;
+      const { token, user } = response.data;
+
+      if (!token || !user) {
+        throw new Error('Invalid server response');
       }
 
-      throw new Error('Invalid response format from server');
+      // Store auth data
+      localStorage.setItem('token', token);
+      localStorage.setItem('user', JSON.stringify({
+        ...user,
+        token
+      }));
+
+      return user;
     } catch (error) {
-      if (axios.isAxiosError(error) && error.response?.data) {
-        const errorData = error.response.data as LoginError;
-        
-        // Handle specific error cases
-        if (errorData.errors?.account) {
-          throw new Error(errorData.errors.account);
-        }
-        if (errorData.errors?.email) {
-          throw new Error(errorData.errors.email);
-        }
-        if (errorData.errors?.password) {
-          throw new Error(errorData.errors.password);
-        }
-        if (errorData.message) {
-          throw new Error(errorData.message);
-        }
+      if (axios.isAxiosError(error)) {
+        const errorMsg = error.response?.data?.message || 'Login failed';
+        throw new Error(errorMsg);
       }
-      throw new Error('An unexpected error occurred during login');
+      throw error;
     }
   }
 
@@ -118,38 +107,44 @@ class AuthService {
   logout() {
     localStorage.removeItem('user');
     localStorage.removeItem('token');
-    window.location.href = '/login';
+    window.location.href = '/';
+  }
+
+  getCurrentUser(): User | null {
+    const userStr = localStorage.getItem('user');
+    if (!userStr) return null;
+    try {
+      return JSON.parse(userStr);
+    } catch {
+      return null;
+    }
   }
 
   isAdmin(role?: string) {
     return role === USER_ROLES.SYSTEM_ADMIN || role === USER_ROLES.SACCO_ADMIN;
   }
 
-  getCurrentUser() {
-    try {
-      const userJson = localStorage.getItem('user');
-      if (userJson) {
-        const user = JSON.parse(userJson);
-        return {
-          ...user,
-          isAdmin: this.isAdmin(user.role)
-        };
-      }
-      return null;
-    } catch (error) {
-      console.error('Error parsing user data:', error);
-      this.logout();
-      return null;
+  isAuthenticated() {
+    const user = this.getCurrentUser();
+    const token = localStorage.getItem('token');
+    return !!(user && token);
+  }
+
+  getRedirectPath(role?: string): string {
+    switch(role) {
+      case USER_ROLES.SYSTEM_ADMIN:
+        return '/admin';
+      case USER_ROLES.SACCO_ADMIN:
+        return '/sacco-admin';
+      case USER_ROLES.DRIVER:
+        return '/driver';
+      case USER_ROLES.PASSENGER:
+        return '/dashboard';
+      default:
+        return '/';
     }
   }
 
-  isAuthenticated() {
-    const token = localStorage.getItem('token');
-    const user = this.getCurrentUser();
-    return !!(token && user);
-  }
-
-  // Add new methods for dashboard
   async getSaccos() {
     try {
       console.log('Fetching SACCOs...');
@@ -192,7 +187,7 @@ class AuthService {
       const vehicles = response.data.map(v => ({
         id: v.id.toString(),
         number: v.registration_number,
-        sacco_id: saccoId // Use the saccoId parameter directly
+        sacco_id: saccoId
       }));
       console.log('Transformed vehicles:', vehicles);
       return { data: vehicles };

@@ -1,9 +1,8 @@
 import jwt from 'jsonwebtoken';
 import config from '../config/config.js';
 
-export const authMiddleware = (requireAdmin = false) => {
+export const authMiddleware = (allowedRoles = []) => {
   return (req, res, next) => {
-    // Get token from header
     const authHeader = req.headers['authorization'];
     const token = authHeader && authHeader.split(' ')[1];
 
@@ -12,17 +11,18 @@ export const authMiddleware = (requireAdmin = false) => {
     }
 
     try {
-      // Verify token using config secret
       const decoded = jwt.verify(token, config.jwtSecret);
 
-      // Check for admin routes if required
-      if (requireAdmin && 
-          decoded.role !== 'system_admin' && 
-          decoded.role !== 'sacco_admin') {
+      // Verify user status is active
+      if (decoded.status !== 'active') {
+        return res.status(403).json({ message: 'Account is not active' });
+      }
+
+      // Check role access if roles are specified
+      if (allowedRoles.length > 0 && !allowedRoles.includes(decoded.role)) {
         return res.status(403).json({ message: 'Access denied' });
       }
 
-      // Add user from payload
       req.user = decoded;
       next();
     } catch (err) {
@@ -30,3 +30,8 @@ export const authMiddleware = (requireAdmin = false) => {
     }
   };
 };
+
+// Helper middleware for common role combinations
+export const adminOnly = authMiddleware(['system_admin']);
+export const saccoAdminOnly = authMiddleware(['system_admin', 'sacco_admin']);
+export const driverOnly = authMiddleware(['driver']);

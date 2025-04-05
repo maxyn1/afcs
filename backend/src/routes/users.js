@@ -2,7 +2,7 @@ import express from 'express';
 import UserController from '../controllers/userController.js';
 import UserDashboardController from '../controllers/userDashboardController.js';
 import { connectDB } from '../config/database.js';
-import { authMiddleware } from '../middleware/authMiddleware.js';
+import { authMiddleware, adminOnly } from '../middleware/authMiddleware.js';
 
 const router = express.Router();
 
@@ -34,7 +34,7 @@ const createControllerFactory = (ControllerClass) => {
 const getUserController = createControllerFactory(UserController);
 const getUserDashboardController = createControllerFactory(UserDashboardController);
 
-// Routes
+// Public routes
 router.post('/register', async (req, res) => {
   const controller = await getUserController();
   return controller.register(req, res);
@@ -45,7 +45,7 @@ router.post('/login', async (req, res) => {
   return controller.login(req, res);
 });
 
-// Profile routes - all protected by authentication
+// Protected routes with role-based access
 router.get('/profile', authMiddleware(), async (req, res) => {
   const controller = await getUserController();
   return controller.getProfile(req, res);
@@ -64,6 +64,12 @@ router.post('/change-password', authMiddleware(), async (req, res) => {
 router.delete('/profile', authMiddleware(), async (req, res) => {
   const controller = await getUserController();
   return controller.deleteAccount(req, res);
+});
+
+// Admin only routes
+router.get('/all', adminOnly, async (req, res) => {
+  const controller = await getUserController();
+  return controller.getAllUsers(req, res);
 });
 
 // Dashboard routes

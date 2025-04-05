@@ -36,6 +36,7 @@ const createControllerFactory = (ControllerClass) => {
 const getAdminUserController = createControllerFactory(AdminUserController);
 const getAdminVehicleController = createControllerFactory(AdminVehicleController);
 const getDashboardController = createControllerFactory(DashboardController);
+const getAdminDashboardController = createControllerFactory(AdminDashboardController);
 
 // Apply auth middlewares
 router.use(authMiddleware());
@@ -133,11 +134,7 @@ router.delete('/vehicles/:id', async (req, res) => {
   }
 });
 
-
-// Add this to the controller factory section
-const getAdminDashboardController = createControllerFactory(AdminDashboardController);
-
-// Add this route
+// Dashboard stats route
 router.get('/dashboard-stats', async (req, res) => {
   try {
     const controller = await getAdminDashboardController();

@@ -69,11 +69,21 @@ class AdminService {
 
   async getDashboardStats() {
     try {
+      console.log('Fetching dashboard stats from:', `${this.API_URL}/dashboard-stats`);
       const { data } = await apiService.get(`${this.API_URL}/dashboard-stats`);
+      console.log('Dashboard stats response:', data);
       return data;
     } catch (error) {
-      console.error('Error fetching dashboard stats:', error);
-      throw error;
+      console.error('Error fetching dashboard stats:', error.response?.data || error);
+      // Return default data structure instead of throwing
+      return {
+        userStats: { total: 0, percentChange: '0%', trend: 'up' },
+        revenueStats: { formattedTotal: 'KSH 0', percentChange: '0%', trend: 'up' },
+        vehicleStats: { total: 0, percentChange: '0%', trend: 'up' },
+        saccoStats: { total: 0, percentChange: '0%', trend: 'up' },
+        recentTransactions: [],
+        activeSaccos: []
+      };
     }
   }
 }

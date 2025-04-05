@@ -63,12 +63,11 @@ class UserController {
     try {
       const { email, password } = req.body;
 
-      const errors = this.validateLogin(req.body);
-      if (Object.keys(errors).length > 0) {
-        return res.status(400).json({ message: 'Validation failed', errors });
-      }
+      const [users] = await this.pool.query(
+        'SELECT id, name, email, phone, password_hash, role, status FROM users WHERE email = ?', 
+        [email]
+      );
 
-      const [users] = await this.pool.query('SELECT * FROM users WHERE email = ?', [email]);
       if (users.length === 0) {
         return res.status(401).json({
           message: 'Authentication failed',
@@ -78,6 +77,7 @@ class UserController {
 
       const user = users[0];
       const isMatch = await bcrypt.compare(password, user.password_hash);
+      
       if (!isMatch) {
         return res.status(401).json({
           message: 'Authentication failed',
@@ -85,14 +85,25 @@ class UserController {
         });
       }
 
-      await this.pool.query('UPDATE users SET last_login = NOW() WHERE id = ?', [user.id]);
+      if (user.status !== 'active') {
+        return res.status(401).json({
+          message: 'Authentication failed',
+          errors: { account: 'Account is not active' }
+        });
+      }
+
+      await this.pool.query(
+        'UPDATE users SET last_login = NOW() WHERE id = ?', 
+        [user.id]
+      );
 
       const token = this.generateToken(user);
       const { password_hash, ...userResponse } = user;
 
       res.status(200).json({
         message: 'Login successful',
-        user: { ...userResponse, token }
+        user: userResponse,
+        token
       });
     } catch (error) {
       console.error('Login error:', error);
@@ -220,8 +231,9 @@ class UserController {
     return jwt.sign(
       { 
         userId: user.id, 
-        email: user.email, 
+        email: user.email,
         role: user.role,
+        status: user.status,
         lastLogin: new Date()
       },
       config.jwtSecret || 'your-secret-key',

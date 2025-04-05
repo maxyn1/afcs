@@ -5,6 +5,7 @@ import { connectDB } from '../config/database.js';
 import { authMiddleware } from '../middleware/authMiddleware.js';
 import { adminMiddleware } from '../middleware/adminMiddleware.js';
 import AdminDashboardController from '../controllers/AdminDashboardController.js';
+import AdminDriverController from '../controllers/adminDriverController.js';
 const router = express.Router();
 
 // Controller factory with caching
@@ -34,10 +35,27 @@ const createControllerFactory = (ControllerClass) => {
 
 const getAdminUserController = createControllerFactory(AdminUserController);
 const getAdminVehicleController = createControllerFactory(AdminVehicleController);
+const getAdminDashboardController = createControllerFactory(AdminDashboardController);
+const getAdminDriverController = createControllerFactory(AdminDriverController);
 
 // Apply auth middlewares
 router.use(authMiddleware());
 router.use(adminMiddleware());
+
+// Add debug middleware for drivers routes
+const debugDriversRoute = (req, res, next) => {
+  console.log('[AdminRoutes] Drivers route accessed:', {
+    method: req.method,
+    path: req.path,
+    query: req.query,
+    body: req.body,
+    headers: {
+      authorization: req.headers.authorization ? 'Present' : 'Missing',
+      contentType: req.headers['content-type']
+    }
+  });
+  next();
+};
 
 // User management routes
 router.get('/users', async (req, res) => {
@@ -131,15 +149,65 @@ router.delete('/vehicles/:id', async (req, res) => {
   }
 });
 
-
-// Add this to the controller factory section
-const getAdminDashboardController = createControllerFactory(AdminDashboardController);
-
-// Add this route
+// Dashboard stats route
 router.get('/dashboard-stats', async (req, res) => {
   try {
     const controller = await getAdminDashboardController();
     return controller.getDashboardStats(req, res);
+  } catch (error) {
+    console.error('Route error:', error);
+    return res.status(500).json({ message: 'Server error' });
+  }
+});
+
+// Driver management routes
+router.get('/drivers', async (req, res) => {
+  try {
+    const controller = await getAdminDriverController();
+    await controller.getAllDrivers(req, res);
+  } catch (error) {
+    console.error('[AdminRoutes] Error:', error);
+    res.status(500).json({ 
+      message: 'Failed to fetch drivers',
+      error: process.env.NODE_ENV === 'development' ? error.message : undefined 
+    });
+  }
+});
+
+router.get('/drivers/:id', async (req, res) => {
+  try {
+    const controller = await getAdminDriverController();
+    return controller.getDriverDetails(req, res);
+  } catch (error) {
+    console.error('Route error:', error);
+    return res.status(500).json({ message: 'Server error' });
+  }
+});
+
+router.post('/drivers', async (req, res) => {
+  try {
+    const controller = await getAdminDriverController();
+    return controller.createDriver(req, res);
+  } catch (error) {
+    console.error('Route error:', error);
+    return res.status(500).json({ message: 'Server error' });
+  }
+});
+
+router.put('/drivers/:id', async (req, res) => {
+  try {
+    const controller = await getAdminDriverController();
+    return controller.updateDriver(req, res);
+  } catch (error) {
+    console.error('Route error:', error);
+    return res.status(500).json({ message: 'Server error' });
+  }
+});
+
+router.delete('/drivers/:id', async (req, res) => {
+  try {
+    const controller = await getAdminDriverController();
+    return controller.deleteDriver(req, res);
   } catch (error) {
     console.error('Route error:', error);
     return res.status(500).json({ message: 'Server error' });

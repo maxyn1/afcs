@@ -31,15 +31,19 @@ const Login = () => {
         return;
       }
 
-      const user = await login(email, password);
-      const redirectPath = authService.getRedirectPath(user.role);
+      const user = await login(email, password); // `login` already handles user fetching
+      if (!user || !user.role) {
+        throw new Error("Invalid user data received");
+      }
+
+      const redirectPath = authService.getRedirectPath(user.role || "passenger"); // Fallback to "passenger"
       navigate(redirectPath);
-      
     } catch (err) {
-      const errorMessage = err instanceof Error 
-        ? err.message 
-        : 'Failed to login. Please check your credentials.';
-      
+      const errorMessage =
+        err instanceof Error
+          ? err.message
+          : "Failed to login. Please check your credentials.";
+
       setError(errorMessage);
       toast({
         title: "Login Error",

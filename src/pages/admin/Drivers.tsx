@@ -160,6 +160,7 @@ const Drivers = () => {
           },
           timeout: 10000 // Add timeout
         });
+        console.log('Drivers data fetched successfully:', response.data);
         return response.data;
       } catch (err) {
         console.error('[Drivers] Error:', err);
@@ -168,15 +169,7 @@ const Drivers = () => {
     },
     retry: 2,
     retryDelay: 1000,
-    onError: (error) => {
-      console.error('Query Error:', error);
-      toast.error('Failed to fetch drivers data');
-    },
-    onSuccess: (data) => {
-      console.log('Drivers data fetched successfully:', data);
-    },
-    staleTime: 30000,
-    cacheTime: 60000,
+    staleTime: 60000,
     refetchOnWindowFocus: false
   });
 

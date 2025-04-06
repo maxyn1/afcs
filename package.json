@@ -104,5 +104,6 @@
   "bugs": {
     "url": "https://github.com/maxyn1/afcs/issues"
   },
-  "homepage": "https://github.com/maxyn1/afcs#readme"
+  "homepage": "https://github.com/maxyn1/afcs#readme",
+  "proxy": "http://localhost:5000"
 }

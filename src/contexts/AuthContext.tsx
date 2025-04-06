@@ -11,7 +11,7 @@ interface User {
 
 interface AuthContextType {
   user: User | null;
-  login: (email: string, password: string) => Promise<void>;
+  login: (email: string, password: string) => Promise<User>;
   logout: () => void;
   isAuthenticated: boolean;
   isAdmin: boolean;
@@ -22,7 +22,9 @@ interface AuthContextType {
 
 const AuthContext = createContext<AuthContextType>({
   user: null,
-  login: async () => {},
+  login: async () => {
+    return { id: '', name: '', email: '', role: 'passenger' };
+  },
   logout: () => {},
   isAuthenticated: false,
   isAdmin: false,
@@ -46,10 +48,14 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         if (storedUser && token) {
           setUser(storedUser);
           setIsAuthenticated(true);
+        } else {
+          console.warn("No valid user or token found during initialization");
         }
       } catch (error) {
         console.error('Auth initialization error:', error);
         authService.logout();
+        setUser(null);
+        setIsAuthenticated(false);
       } finally {
         setIsLoading(false);
       }
@@ -62,19 +68,20 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     try {
       setIsLoading(true);
       const userData = await authService.login(email, password);
-      
+
       if (!userData || !userData.role) {
-        throw new Error('Invalid user data received');
+        console.error("Invalid user data received:", userData); // Debug log
+        throw new Error("Invalid user data received");
       }
 
       setUser(userData);
       setIsAuthenticated(true);
-      
-      // Ensure we have a valid redirect path
-      const redirectPath = authService.getRedirectPath(userData.role);
-      return navigate(redirectPath, { replace: true });
+
+      const redirectPath = authService.getRedirectPath(userData.role || "passenger"); // Fallback to "passenger"
+      navigate(redirectPath, { replace: true });
+      return userData; // Return the user object
     } catch (error) {
-      console.error('Login error:', error);
+      console.error("Login error:", error);
       setIsAuthenticated(false);
       setUser(null);
       throw error;

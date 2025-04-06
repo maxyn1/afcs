@@ -102,7 +102,7 @@ class UserController {
 
       res.status(200).json({
         message: 'Login successful',
-        user: userResponse,
+        user: userResponse, // Ensure this includes the `role` property
         token
       });
     } catch (error) {

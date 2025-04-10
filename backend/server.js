@@ -9,6 +9,8 @@ import walletRoutes from './src/routes/wallet.js';
 import vehicleRoutes from './src/routes/vehicles.js';
 import adminRoutes from './src/routes/adminRoutes.js';
 import { errorHandler } from './src/utils/errorHandler.js';
+import saccoAdminRoutes from './src/routes/saccoAdmin.js';
+
 
 dotenv.config();
 
@@ -29,6 +31,9 @@ app.use('/api/routes', routeRoutes);
 app.use('/api/vehicles', vehicleRoutes);
 app.use('/api/wallet', walletRoutes);
 app.use('/api/admin', adminRoutes);
+
+
+app.use('/api/sacco-admin', saccoAdminRoutes);
 
 // Error handling middleware
 app.use(errorHandler);

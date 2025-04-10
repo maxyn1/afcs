@@ -1,4 +1,3 @@
-
 import api from './api';
 import type { Driver } from './driverService';
 
@@ -25,8 +24,13 @@ export interface Route {
 
 class SaccoAdminService {
   async getDashboardStats() {
-    const response = await api.get('/sacco-admin/dashboard-stats');
-    return response.data;
+    try {
+      const response = await api.get('/sacco-admin/dashboard-stats');
+      return response.data;
+    } catch (error) {
+      console.error('Failed to fetch SACCO dashboard stats:', error);
+      throw error;
+    }
   }
 
   async getDrivers() {
@@ -85,4 +89,6 @@ class SaccoAdminService {
   }
 }
 
-export default new SaccoAdminService();
+const saccoAdminService = new SaccoAdminService();
+export default saccoAdminService;
+export { saccoAdminService }; // Add named export

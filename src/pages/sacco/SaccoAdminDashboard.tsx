@@ -1,10 +1,9 @@
-
 import { useState, useEffect } from "react";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { useAuth } from "@/contexts/AuthContext";
 import { BarChart, Bus, CreditCard, Users, Route, MapPin, Activity } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { adminService } from "@/services/adminService";
+import { saccoAdminService } from "@/services/saccoAdminService";
 
 // Simple Chart component
 const SimpleBarChart = () => (
@@ -38,28 +37,18 @@ const SaccoAdminDashboard = () => {
   useEffect(() => {
     const fetchDashboardData = async () => {
       try {
-        const data = await adminService.getDashboardStats();
+        const data = await saccoAdminService.getDashboardStats();
         setStats({
-          totalDrivers: data.totalDrivers || 45,
-          totalVehicles: data.totalVehicles || 38,
-          totalRoutes: data.totalRoutes || 12,
-          dailyRevenue: data.dailyRevenue || 124500,
-          totalTrips: data.totalTrips || 183,
-          totalPassengers: data.totalPassengers || 2456,
-          activeVehicles: data.activeVehicles || 32
+          totalDrivers: data.totalDrivers || 0,
+          totalVehicles: data.totalVehicles || 0,
+          totalRoutes: data.totalRoutes || 0,
+          dailyRevenue: data.dailyRevenue || 0,
+          totalTrips: data.totalTrips || 0,
+          totalPassengers: data.totalPassengers || 0,
+          activeVehicles: data.activeVehicles || 0,
         });
       } catch (error) {
         console.error("Failed to fetch dashboard data:", error);
-        // Set fallback data in case of error
-        setStats({
-          totalDrivers: 45,
-          totalVehicles: 38,
-          totalRoutes: 12,
-          dailyRevenue: 124500,
-          totalTrips: 183,
-          totalPassengers: 2456,
-          activeVehicles: 32
-        });
       }
     };
 

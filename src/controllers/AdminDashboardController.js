@@ -7,19 +7,29 @@ class AdminDashboardController {
 
   async getDashboardStats(req, res) {
     try {
+      const userStats = await this.getUserStats();
+      const revenueStats = await this.getRevenueStats(); 
+      const vehicleStats = await this.getVehicleStats();
+      const saccoStats = await this.getSaccoStats();
+      const recentTransactions = await this.getRecentTransactions();
+      const activeSaccos = await this.getActiveSaccos();
+
       const stats = {
-        userStats: await this.getUserStats(),
-        revenueStats: await this.getRevenueStats(),
-        vehicleStats: await this.getVehicleStats(),
-        saccoStats: await this.getSaccoStats(),
-        recentTransactions: await this.getRecentTransactions(),
-        activeSaccos: await this.getActiveSaccos()
+        userStats,
+        revenueStats,
+        vehicleStats,
+        saccoStats,
+        recentTransactions,
+        activeSaccos
       };
 
       res.json(stats);
     } catch (error) {
       console.error('Error fetching dashboard stats:', error);
-      res.status(500).json({ message: 'Error fetching dashboard statistics' });
+      res.status(500).json({ 
+        message: 'Error fetching dashboard statistics',
+        error: error.message 
+      });
     }
   }
 

@@ -199,7 +199,7 @@ class AuthService {
 
   async getWalletBalance() {
     try {
-      const response = await api.get('/users/wallet/balance');
+      const response = await api.get('/wallet/balance');
       return response;
     } catch (error) {
       console.error('Error fetching wallet balance:', error);
@@ -209,7 +209,7 @@ class AuthService {
 
   async topUpWallet(amount: number, paymentMethod: string = 'mpesa'): Promise<void> {
     try {
-      await api.post('/users/wallet/topup', { amount, payment_method: paymentMethod });
+      await api.post('/wallet/topup', { amount, payment_method: paymentMethod });
     } catch (error) {
       console.error('Error topping up wallet:', error);
       throw error;
@@ -218,7 +218,7 @@ class AuthService {
 
   async getWalletTransactions(): Promise<Transaction[]> {
     try {
-      const response = await api.get('/users/wallet/transactions');
+      const response = await api.get('/wallet/transactions');
       return response.data;
     } catch (error) {
       console.error('Error fetching transactions:', error);

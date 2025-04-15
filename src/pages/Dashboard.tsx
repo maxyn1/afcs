@@ -29,6 +29,7 @@ const Dashboard = () => {
   const [selectedSacco, setSelectedSacco] = useState<string>("");
   const [selectedVehicle, setSelectedVehicle] = useState<string>("");
   const [selectedRoute, setSelectedRoute] = useState<string>("");
+  const [topUpAmount, setTopUpAmount] = useState<string>("");
 
   useEffect(() => {
     const checkAuthAndFetchData = async () => {
@@ -148,8 +149,10 @@ const Dashboard = () => {
                   type="number"
                   placeholder="Enter amount (KSH)"
                   className="text-lg"
+                  value={topUpAmount}
+                  onChange={(e) => setTopUpAmount(e.target.value)}
                 />
-                <Button className="w-full" onClick={() => {}}>
+                <Button className="w-full" onClick={() => handleTopUp(Number(topUpAmount))} disabled={!topUpAmount || Number(topUpAmount) <= 0}>
                   Top Up via M-PESA
                 </Button>
               </div>
@@ -165,7 +168,7 @@ const Dashboard = () => {
             </CardHeader>
             <CardContent className="space-y-4">
               <div className="space-y-2">
-                <Select onValueChange={handleSaccoChange}>
+                <Select onValueChange={handleSaccoChange} value={selectedSacco}>
                   <SelectTrigger>
                     <SelectValue placeholder="Select SACCO" />
                   </SelectTrigger>
@@ -180,6 +183,7 @@ const Dashboard = () => {
 
                 <Select 
                   onValueChange={setSelectedVehicle}
+                  value={selectedVehicle}
                 >
                   <SelectTrigger>
                     <SelectValue placeholder="Select Vehicle" />
@@ -209,7 +213,9 @@ const Dashboard = () => {
               {routes.map((item, i) => (
                 <div
                   key={i}
-                  className="flex items-center justify-between p-3 hover:bg-gray-50 rounded-lg border cursor-pointer"
+                  className={`flex items-center justify-between p-3 rounded-lg border cursor-pointer hover:bg-gray-50 ${
+                    selectedRoute === item.route ? 'bg-gray-200' : ''
+                  }`}
                   onClick={() => setSelectedRoute(item.route)}
                 >
                   <div className="flex items-center gap-3">

@@ -128,6 +128,18 @@ class AdminUserController {
       res.status(500).json({ message: 'Error changing user role' });
     }
   }
+
+  async getSaccoAdmins(req, res) {
+    try {
+      const [admins] = await this.pool.query(
+        `SELECT id, name FROM users WHERE role = 'sacco_admin' AND status = 'active'`
+      );
+      res.json(admins);
+    } catch (error) {
+      console.error('Error fetching SACCO admins:', error);
+      res.status(500).json({ message: 'Error fetching SACCO admins' });
+    }
+  }
 }
 
 export default AdminUserController;

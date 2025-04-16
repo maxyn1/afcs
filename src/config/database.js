@@ -43,6 +43,9 @@ export class DatabaseSetup {
       await this.createFeedbackTable();
       await this.setupIndexes();
 
+      // Add user_id column to saccos table
+      await this.addUserIdToSaccosTable();
+
       // Add test data
       await this.addTestData();
 
@@ -107,6 +110,36 @@ export class DatabaseSetup {
       )
     `;
     await this.createTable('saccos', createQuery);
+  }
+
+  async addUserIdToSaccosTable() {
+    try {
+      // Check if the column already exists
+      const [columns] = await this.pool.query(`
+        SELECT COLUMN_NAME 
+        FROM INFORMATION_SCHEMA.COLUMNS 
+        WHERE TABLE_SCHEMA = ? AND TABLE_NAME = 'saccos' AND COLUMN_NAME = 'user_id'
+      `, [config.db.database]);
+
+      if (columns.length === 0) {
+        // Add the user_id column
+        await this.pool.query(`
+          ALTER TABLE saccos 
+          ADD COLUMN user_id VARCHAR(36),
+          ADD CONSTRAINT fk_saccos_user_id FOREIGN KEY (user_id) REFERENCES users(id)
+        `);
+        console.log('user_id column added to saccos table successfully');
+      } else {
+        console.log('user_id column already exists in saccos table, skipping addition');
+      }
+    } catch (error) {
+      if (error.code === 'ER_DUP_FIELDNAME') {
+        console.log('user_id column already exists in saccos table, skipping addition');
+      } else {
+        console.error('Error adding user_id column to saccos table:', error);
+        throw error;
+      }
+    }
   }
 
   // Vehicles Table

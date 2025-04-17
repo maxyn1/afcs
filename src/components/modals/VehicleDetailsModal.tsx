@@ -7,18 +7,7 @@ import {
 import { Badge } from "@/components/ui/badge";
 import { Bus, Calendar, Wrench, Shield } from "lucide-react";
 import { format } from "date-fns";
-
-interface VehicleInfo {
-  registration_number: string;
-  make: string;
-  model: string;
-  year: number;
-  capacity: number;
-  vehicle_status: string;
-  sacco_name: string;
-  last_maintenance: string;
-  insurance_expiry: string;
-}
+import type { VehicleInfo } from "@/services/driverService";
 
 interface VehicleDetailsModalProps {
   isOpen: boolean;

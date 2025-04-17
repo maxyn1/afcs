@@ -43,8 +43,11 @@ export interface DashboardStats {
 
 export interface VehicleInfo {
   registration_number: string;
-  type: string;
+  make: string;
+  model: string;
+  year: number;
   capacity: number;
+  vehicle_status: string;
   sacco_name: string;
   last_maintenance: string;
   insurance_expiry: string;

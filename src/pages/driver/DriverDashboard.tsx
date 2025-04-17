@@ -12,7 +12,7 @@ import { VehicleDetailsModal } from "@/components/modals/VehicleDetailsModal";
 const DriverDashboard = () => {
   const { user } = useAuth();
   const { toast } = useToast();
-  const [isOnline, setIsOnline] = useState(false);
+  const [isOnline, setIsOnline] = useState(true);
   const [todayTrips, setTodayTrips] = useState(0);
   const [todayEarnings, setTodayEarnings] = useState(0);
   const [totalPassengers, setTotalPassengers] = useState(0);
@@ -115,11 +115,11 @@ const DriverDashboard = () => {
           </p>
         </div>
         <div className="flex items-center gap-4">
-          <Badge variant={isOnline ? "default" : "outline"} className={`px-3 py-1.5 ${isOnline ? "bg-green-500 hover:bg-green-600" : ""}`}>
-            {isOnline ? "Online" : "Offline"}
+          <Badge variant={!isOnline ? "default" : "outline"} className={`px-3 py-1.5 ${!isOnline ? "bg-green-500 hover:bg-green-600" : ""}`}>
+            {isOnline ? "Offline" : "Online"}
           </Badge>
           <Button onClick={toggleOnlineStatus}>
-            {isOnline ? "Go Offline" : "Go Online"}
+            {isOnline ? "Go Online" : "Go Offline"}
           </Button>
         </div>
       </div>

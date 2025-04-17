@@ -34,6 +34,9 @@ import DriverDashboard from "./pages/driver/DriverDashboard";
 import DriverProfile from "./pages/driver/DriverProfile";
 import DriverTrips from "./pages/driver/DriverTrips";
 import DriverVehicle from "./pages/driver/DriverVehicle";
+import DriverRoute from "./pages/driver/DriverRoute"; 
+import DriverMessages from "./pages/driver/DriverMessages";
+import DriverSettings from "./pages/driver/DriverSettings";
 
 // SACCO Admin pages
 import SaccoAdminDashboard from "./pages/sacco/SaccoAdminDashboard";
@@ -145,6 +148,30 @@ const App = () => (
                 </DriverLayout>
               </ProtectedRoute>
             } />
+
+            <Route path='/driver/routes' element={
+              <ProtectedRoute requireDriver>
+                <DriverLayout>
+                  <DriverRoute />
+                </DriverLayout>
+              </ProtectedRoute>
+            } />
+            <Route path="/driver/messages" element={
+              <ProtectedRoute requireDriver>
+                <DriverLayout>
+                  <DriverMessages />
+                </DriverLayout>
+              </ProtectedRoute>
+            } />
+            <Route path="/driver/settings" element={
+              <ProtectedRoute requireDriver>
+                <DriverLayout>
+                  <DriverSettings />
+                </DriverLayout>
+              </ProtectedRoute>
+            } />
+            
+
             <Route path="/driver/trips" element={
               <ProtectedRoute requireDriver>
                 <DriverLayout>

@@ -106,10 +106,11 @@ const DriverTrips = () => {
       <Pagination>
         <PaginationContent>
           <PaginationItem>
-            <PaginationPrevious
-              onClick={() => setPage(prev => Math.max(1, prev - 1))}
-              disabled={page === 1}
-            />
+            {page > 1 && (
+              <PaginationPrevious
+                onClick={() => setPage(prev => Math.max(1, prev - 1))}
+              />
+            )}
           </PaginationItem>
           {Array.from({ length: Math.min(totalPages, 5) }).map((_, i) => (
             <PaginationItem key={i}>
@@ -122,10 +123,11 @@ const DriverTrips = () => {
             </PaginationItem>
           ))}
           <PaginationItem>
-            <PaginationNext
-              onClick={() => setPage(prev => prev < totalPages ? prev + 1 : prev)}
-              disabled={page === totalPages}
-            />
+            {page < totalPages && (
+              <PaginationNext
+                onClick={() => setPage(prev => prev + 1)}
+              />
+            )}
           </PaginationItem>
         </PaginationContent>
       </Pagination>

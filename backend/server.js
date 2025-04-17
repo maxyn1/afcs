@@ -12,6 +12,7 @@ import { errorHandler } from './src/utils/errorHandler.js';
 import saccoAdminRoutes from './src/routes/saccoAdmin.js';
 import driverRoutes from './src/routes/driver.js';
 
+
 dotenv.config();
 
 const app = express();

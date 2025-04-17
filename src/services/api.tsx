@@ -9,9 +9,16 @@ const api = axios.create({
   }
 });
 
-// Request interceptor for adding auth token
+// Add request debugging
 api.interceptors.request.use(
   (config) => {
+    console.log('🚀 API Request:', {
+      method: config.method?.toUpperCase(),
+      url: config.url,
+      headers: config.headers,
+      data: config.data,
+      params: config.params
+    });
     const user = localStorage.getItem('user');
     if (user) {
       const parsedUser = JSON.parse(user);
@@ -20,14 +27,30 @@ api.interceptors.request.use(
     return config;
   },
   (error) => {
+    console.error('❌ Request Error:', error);
     return Promise.reject(error);
   }
 );
 
-// Response interceptor for error handling
+// Add response debugging
 api.interceptors.response.use(
-  (response) => response,
+  (response) => {
+    console.log('✅ API Response:', {
+      status: response.status,
+      url: response.config.url,
+      data: response.data
+    });
+    return response;
+  },
   (error) => {
+    console.error('❌ Response Error:', {
+      message: error.message,
+      response: {
+        status: error.response?.status,
+        data: error.response?.data,
+        url: error.config?.url,
+      }
+    });
     if (error.response) {
       switch (error.response.status) {
         case 401:

@@ -24,6 +24,29 @@ app.use(cors({
 }));
 app.use(express.json());
 
+app.use((req, res, next) => {
+  const start = Date.now();
+  console.log('📝 Request:', {
+    timestamp: new Date().toISOString(),
+    method: req.method,
+    path: req.path,
+    query: req.query,
+    body: req.body,
+    ip: req.ip
+  });
+
+  res.on('finish', () => {
+    const duration = Date.now() - start;
+    console.log('🏁 Response:', {
+      path: req.path,
+      statusCode: res.statusCode,
+      duration: `${duration}ms`
+    });
+  });
+
+  next();
+});
+
 // API Routes
 app.use('/api/users', userRoutes);
 app.use('/api/saccos', saccoRoutes);

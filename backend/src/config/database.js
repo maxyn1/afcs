@@ -30,6 +30,33 @@ export class DatabaseSetup {
         queueLimit: 0
       });
 
+      // Add query logging
+      const oldQuery = this.pool.query.bind(this.pool);
+      this.pool.query = async (...args) => {
+        const start = Date.now();
+        console.log('🔍 DB Query:', {
+          sql: args[0],
+          params: args[1] || []
+        });
+
+        try {
+          const result = await oldQuery(...args);
+          const duration = Date.now() - start;
+          console.log('✅ DB Result:', {
+            duration: `${duration}ms`,
+            rowCount: Array.isArray(result[0]) ? result[0].length : result[0].affectedRows
+          });
+          return result;
+        } catch (error) {
+          console.error('❌ DB Error:', {
+            error: error.message,
+            sql: args[0],
+            params: args[1] || []
+          });
+          throw error;
+        }
+      };
+
       // Create tables
       await this.createUsersTable();
       await this.createSaccosTable();

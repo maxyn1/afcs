@@ -183,6 +183,74 @@ class DriverDashboardController {
       });
     }
   }
+
+  async getProfile(req, res) {
+    try {
+      console.log('Getting driver profile for user:', req.user.userId);
+      
+      // Get driver details including user info
+      const [driverRows] = await this.pool.query(`
+        SELECT 
+          d.id,
+          d.license_number,
+          d.license_expiry,
+          d.status,
+          d.driver_rating,
+          d.total_trips,
+          u.name,
+          u.email,
+          u.phone,
+          s.name as sacco_name,
+          v.id as vehicle_id
+        FROM drivers d
+        JOIN users u ON d.user_id = u.id
+        LEFT JOIN saccos s ON d.sacco_id = s.id
+        LEFT JOIN (
+          SELECT driver_id, vehicle_id 
+          FROM trips 
+          WHERE status = 'in_progress' 
+          ORDER BY departure_time DESC 
+          LIMIT 1
+        ) t ON d.id = t.driver_id
+        LEFT JOIN vehicles v ON t.vehicle_id = v.id
+        WHERE d.user_id = ?`,
+        [req.user.userId]
+      );
+
+      if (driverRows.length === 0) {
+        console.log('No driver profile found for user:', req.user.userId);
+        return res.status(404).json({ message: 'Driver profile not found' });
+      }
+
+      const driver = driverRows[0];
+      console.log('Found driver profile:', driver);
+
+      res.json({
+        id: driver.id,
+        name: driver.name,
+        email: driver.email,
+        phone: driver.phone,
+        license_number: driver.license_number,
+        license_expiry: driver.license_expiry,
+        status: driver.status || 'inactive',
+        rating: Number(driver.driver_rating) || 0,
+        trips_count: Number(driver.total_trips) || 0,
+        sacco_name: driver.sacco_name,
+        vehicle_id: driver.vehicle_id,
+      });
+
+    } catch (error) {
+      console.error('Error in getProfile:', {
+        error: error.message,
+        stack: error.stack,
+        userId: req.user?.userId
+      });
+      res.status(500).json({ 
+        message: 'Error fetching driver profile',
+        error: process.env.NODE_ENV === 'development' ? error.message : undefined
+      });
+    }
+  }
 }
 
 export default DriverDashboardController;

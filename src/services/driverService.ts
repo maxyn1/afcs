@@ -6,7 +6,7 @@ export interface Driver {
   email: string;
   phone: string;
   license_number: string;
-  sacco_id: number;
+  license_expiry: string;
   sacco_name: string;
   vehicle_id: number | null;
   status: 'active' | 'inactive' | 'suspended';
@@ -54,37 +54,39 @@ export interface VehicleInfo {
 }
 
 class DriverService {
-  async getProfile() {
-    const response = await api.get('/driver/profile');
+  private API_URL = '/driver';
+
+  async getProfile(): Promise<Driver> {
+    const response = await api.get(`${this.API_URL}/profile`);
     return response.data;
   }
 
   async getStats() {
-    const response = await api.get('/driver/stats');
+    const response = await api.get(`${this.API_URL}/stats`);
     return response.data;
   }
 
   async getVehicle() {
-    const response = await api.get('/driver/vehicle');
+    const response = await api.get(`${this.API_URL}/vehicle`);
     return response.data;
   }
 
   async getTripHistory(page = 1, limit = 10) {
-    const response = await api.get('/driver/trips', {
+    const response = await api.get(`${this.API_URL}/trips`, {
       params: { page, limit }
     });
     return response.data;
   }
 
-  async updateProfile(data: Partial<Driver>) {
-    const response = await api.put('/driver/profile', data);
+  async updateProfile(data: Partial<Driver>): Promise<Driver> {
+    const response = await api.put(`${this.API_URL}/profile`, data);
     return response.data;
   }
 
   async updateStatus(status: 'active' | 'inactive'): Promise<void> {
     try {
       console.log('Updating driver status:', status);
-      const response = await api.put('/driver/status', { status });
+      const response = await api.put(`${this.API_URL}/status`, { status });
       console.log('Status update response:', response.data);
     } catch (error) {
       console.error('Failed to update status:', {
@@ -97,14 +99,14 @@ class DriverService {
   }
 
   async reportIssue(issue: { type: string; description: string; priority: 'low' | 'medium' | 'high' }) {
-    const response = await api.post('/driver/issues', issue);
+    const response = await api.post(`${this.API_URL}/issues`, issue);
     return response.data;
   }
 
   async getDashboardStats(): Promise<DashboardStats> {
     try {
       console.log('Making request to /driver/dashboard-stats');
-      const response = await api.get<DashboardStats>('/driver/dashboard-stats');
+      const response = await api.get<DashboardStats>(`${this.API_URL}/dashboard-stats`);
       console.log('Dashboard stats response:', response.data);
       return response.data;
     } catch (error) {
@@ -118,7 +120,19 @@ class DriverService {
   }
 
   async getVehicleInfo(): Promise<VehicleInfo> {
-    const response = await api.get('/driver/vehicle-info');
+    const response = await api.get(`${this.API_URL}/vehicle-info`);
+    return response.data;
+  }
+
+  async changePassword(oldPassword: string, newPassword: string): Promise<void> {
+    await api.post(`${this.API_URL}/change-password`, {
+      oldPassword,
+      newPassword
+    });
+  }
+
+  async updateLicenseInfo(data: { license_number: string; license_expiry: string }): Promise<Driver> {
+    const response = await api.put(`${this.API_URL}/license`, data);
     return response.data;
   }
 }

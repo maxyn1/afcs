@@ -1,4 +1,3 @@
-
 import { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import driverService, { Driver } from "@/services/driverService";
@@ -22,14 +21,31 @@ const DriverProfile = () => {
   const [formData, setFormData] = useState<Partial<Driver>>({});
   const queryClient = useQueryClient();
 
-  const { data: driver, isLoading } = useQuery({
+  const { data: driver, isLoading, error, isError } = useQuery({
     queryKey: ['driverProfile'],
-    queryFn: driverService.getProfile
+    queryFn: async () => {
+      try {
+        console.log('Fetching driver profile...');
+        const response = await driverService.getProfile();
+        console.log('Driver profile fetch successful:', response);
+        return response;
+      } catch (error) {
+        console.error('Error fetching driver profile:', error);
+        throw error;
+      }
+    },
+    retry: 1
   });
 
   const updateMutation = useMutation({
-    mutationFn: (data: Partial<Driver>) => driverService.updateProfile(data),
+    mutationFn: async (data: Partial<Driver>) => {
+      console.log('Updating driver profile with data:', data);
+      const response = await driverService.updateProfile(data);
+      console.log('Update response:', response);
+      return response;
+    },
     onSuccess: () => {
+      console.log('Profile update successful');
       queryClient.invalidateQueries({ queryKey: ['driverProfile'] });
       toast({
         title: "Profile updated",
@@ -38,6 +54,7 @@ const DriverProfile = () => {
       setIsEditing(false);
     },
     onError: (error) => {
+      console.error('Profile update failed:', error);
       toast({
         title: "Update failed",
         description: error.message || "Failed to update profile. Please try again.",
@@ -68,6 +85,23 @@ const DriverProfile = () => {
     e.preventDefault();
     updateMutation.mutate(formData);
   };
+
+  if (isError) {
+    return (
+      <div className="space-y-6">
+        <div className="flex items-center justify-between">
+          <h1 className="text-3xl font-bold">Driver Profile</h1>
+        </div>
+        <Card>
+          <CardContent className="pt-6">
+            <div className="text-red-500">
+              Error loading profile: {error?.message || 'Unknown error occurred'}
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
 
   if (isLoading) {
     return (

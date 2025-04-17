@@ -1,4 +1,3 @@
-
 import React from "react";
 import { motion } from "framer-motion";
 import { Link } from "react-router-dom";
@@ -6,7 +5,37 @@ import { Button } from "@/components/ui/button";
 import { useAuth } from "../contexts/AuthContext";
 
 const LandingPage: React.FC = () => {
-  const { isAuthenticated, isAdmin } = useAuth();
+  const { isAuthenticated, user } = useAuth();
+
+  const getDashboardPath = (role?: string) => {
+    switch(role) {
+      case 'system_admin':
+        return '/admin';
+      case 'sacco_admin':
+        return '/sacco-admin';
+      case 'driver':
+        return '/driver';
+      case 'passenger':
+        return '/dashboard';
+      default:
+        return '/dashboard';
+    }
+  };
+
+  const getDashboardLabel = (role?: string) => {
+    switch(role) {
+      case 'system_admin':
+        return 'System Admin Dashboard';
+      case 'sacco_admin':
+        return 'SACCO Admin Dashboard';
+      case 'driver':
+        return 'Driver Dashboard';
+      case 'passenger':
+        return 'Passenger Dashboard';
+      default:
+        return 'Dashboard';
+    }
+  };
 
   return (
     <div className="min-h-screen flex flex-col bg-gray-100">
@@ -18,8 +47,8 @@ const LandingPage: React.FC = () => {
             {isAuthenticated ? (
               <div className="flex space-x-4">
                 <Button asChild variant="outline" className="text-white border-white hover:bg-white/10">
-                  <Link to={isAdmin ? "/admin" : "/dashboard"}>
-                    {isAdmin ? "Admin Dashboard" : "Dashboard"}
+                  <Link to={getDashboardPath(user?.role)}>
+                    {getDashboardLabel(user?.role)}
                   </Link>
                 </Button>
               </div>
@@ -54,8 +83,8 @@ const LandingPage: React.FC = () => {
             <div className="flex flex-col sm:flex-row justify-center gap-4">
               {isAuthenticated ? (
                 <Button asChild size="lg" className="bg-blue-600 hover:bg-blue-700">
-                  <Link to={isAdmin ? "/admin" : "/dashboard"}>
-                    Go to {isAdmin ? "Admin Dashboard" : "Dashboard"}
+                  <Link to={getDashboardPath(user?.role)}>
+                    Go to {getDashboardLabel(user?.role)}
                   </Link>
                 </Button>
               ) : (

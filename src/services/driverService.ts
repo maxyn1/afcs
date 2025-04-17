@@ -1,4 +1,3 @@
-
 import api from './api';
 
 export interface Driver {
@@ -34,6 +33,23 @@ export interface Trip {
   status: 'completed' | 'cancelled' | 'in-progress';
 }
 
+export interface DashboardStats {
+  todayTrips: number;
+  todayEarnings: number;
+  totalPassengers: number;
+  isOnline: boolean;
+  currentRoute: string;
+}
+
+export interface VehicleInfo {
+  registration_number: string;
+  type: string;
+  capacity: number;
+  sacco_name: string;
+  last_maintenance: string;
+  insurance_expiry: string;
+}
+
 class DriverService {
   async getProfile() {
     const response = await api.get('/driver/profile');
@@ -62,13 +78,44 @@ class DriverService {
     return response.data;
   }
 
-  async updateStatus(status: 'active' | 'inactive') {
-    const response = await api.put('/driver/status', { status });
-    return response.data;
+  async updateStatus(status: 'active' | 'inactive'): Promise<void> {
+    try {
+      console.log('Updating driver status:', status);
+      const response = await api.put('/driver/status', { status });
+      console.log('Status update response:', response.data);
+    } catch (error) {
+      console.error('Failed to update status:', {
+        error,
+        response: error.response?.data,
+        status: error.response?.status
+      });
+      throw error;
+    }
   }
 
   async reportIssue(issue: { type: string; description: string; priority: 'low' | 'medium' | 'high' }) {
     const response = await api.post('/driver/issues', issue);
+    return response.data;
+  }
+
+  async getDashboardStats(): Promise<DashboardStats> {
+    try {
+      console.log('Making request to /driver/dashboard-stats');
+      const response = await api.get<DashboardStats>('/driver/dashboard-stats');
+      console.log('Dashboard stats response:', response.data);
+      return response.data;
+    } catch (error) {
+      console.error('Failed to fetch dashboard stats:', {
+        error,
+        response: error.response?.data,
+        status: error.response?.status
+      });
+      throw error;
+    }
+  }
+
+  async getVehicleInfo(): Promise<VehicleInfo> {
+    const response = await api.get('/driver/vehicle-info');
     return response.data;
   }
 }

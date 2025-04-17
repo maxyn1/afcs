@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -6,6 +5,9 @@ import { Button } from "@/components/ui/button";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/contexts/AuthContext";
 import { Bus, CreditCard, Users, Route as RouteIcon, Clock } from "lucide-react";
+import { useQuery, useMutation } from "@tanstack/react-query";
+import driverService from "@/services/driverService";
+import { VehicleDetailsModal } from "@/components/modals/VehicleDetailsModal";
 
 const DriverDashboard = () => {
   const { user } = useAuth();
@@ -15,23 +17,93 @@ const DriverDashboard = () => {
   const [todayEarnings, setTodayEarnings] = useState(0);
   const [totalPassengers, setTotalPassengers] = useState(0);
   const [currentRoute, setCurrentRoute] = useState("Not assigned");
+  const [showVehicleModal, setShowVehicleModal] = useState(false);
+  const [vehicleInfo, setVehicleInfo] = useState(null);
+  const [isLoadingVehicle, setIsLoadingVehicle] = useState(false);
 
-  useEffect(() => {
-    // This would be replaced with actual API calls
-    setTodayTrips(4);
-    setTodayEarnings(2500);
-    setTotalPassengers(32);
-    setCurrentRoute("Nairobi CBD - Westlands");
-  }, []);
+  const { data: dashboardStats, error: statsError, isLoading: statsLoading } = useQuery({
+    queryKey: ['driverDashboardStats'],
+    queryFn: async () => {
+      try {
+        console.log('Fetching dashboard stats...');
+        const data = await driverService.getDashboardStats();
+        console.log('Dashboard stats fetched successfully:', data);
+        setTodayTrips(data.todayTrips);
+        setTodayEarnings(data.todayEarnings);
+        setTotalPassengers(data.totalPassengers);
+        setCurrentRoute(data.currentRoute);
+        setIsOnline(data.isOnline);
+        return data;
+      } catch (error) {
+        console.error('Error fetching dashboard stats:', error);
+        toast({
+          title: "Error",
+          description: "Failed to load dashboard statistics",
+          variant: "destructive",
+        });
+        throw error;
+      }
+    }
+  });
+
+  const statusMutation = useMutation({
+    mutationFn: (newStatus: boolean) => {
+      console.log('Updating driver status to:', newStatus ? 'active' : 'inactive');
+      return driverService.updateStatus(newStatus ? 'active' : 'inactive');
+    },
+    onSuccess: () => {
+      console.log('Status updated successfully');
+      toast({
+        title: isOnline ? "You are now offline" : "You are now online",
+        description: isOnline ? "You won't receive any trip requests" : "You can now receive trip requests",
+      });
+    },
+    onError: (error) => {
+      console.error('Error updating status:', error);
+      setIsOnline(!isOnline); // Revert state
+      toast({
+        title: "Update failed",
+        description: "Failed to update your status. Please try again.",
+        variant: "destructive",
+      });
+    }
+  });
 
   const toggleOnlineStatus = () => {
+    console.log('Toggling online status. Current:', isOnline);
     setIsOnline(!isOnline);
-    toast({
-      title: !isOnline ? "You are now online" : "You are now offline",
-      description: !isOnline ? "You can now receive trip requests" : "You won't receive any trip requests",
-      variant: !isOnline ? "default" : "destructive",
-    });
+    statusMutation.mutate(!isOnline);
   };
+
+  const handleViewVehicleDetails = async () => {
+    setShowVehicleModal(true);
+    setIsLoadingVehicle(true);
+    try {
+      const data = await driverService.getVehicleInfo();
+      setVehicleInfo(data);
+    } catch (error) {
+      console.error('Failed to load vehicle info:', error);
+      toast({
+        title: "Error",
+        description: "Failed to load vehicle information",
+        variant: "destructive",
+      });
+    } finally {
+      setIsLoadingVehicle(false);
+    }
+  };
+
+  if (statsLoading) {
+    console.log('Loading dashboard stats...');
+    return <div className="flex items-center justify-center min-h-screen">
+      <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-primary"></div>
+    </div>;
+  }
+
+  if (statsError) {
+    console.error('Dashboard stats error:', statsError);
+    return <div className="p-4 text-red-500">Error loading dashboard data</div>;
+  }
 
   return (
     <div className="space-y-6">
@@ -119,9 +191,18 @@ const DriverDashboard = () => {
             <Badge variant="outline">Metro SACCO</Badge>
             <Badge variant="outline" className="bg-green-50">Maintenance Up-to-date</Badge>
           </div>
-          <Button variant="outline">View Details</Button>
+          <Button variant="outline" onClick={handleViewVehicleDetails}>
+            View Details
+          </Button>
         </CardContent>
       </Card>
+
+      <VehicleDetailsModal
+        isOpen={showVehicleModal}
+        onClose={() => setShowVehicleModal(false)}
+        vehicleInfo={vehicleInfo}
+        isLoading={isLoadingVehicle}
+      />
     </div>
   );
 };

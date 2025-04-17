@@ -144,6 +144,36 @@ export class DatabaseSetup {
       )
     `;
     await this.createTable('drivers', createQuery);
+
+    // Check and modify drivers status column if needed
+    const [statusColumnInfo] = await this.pool.query(`
+      SELECT COLUMN_TYPE 
+      FROM INFORMATION_SCHEMA.COLUMNS 
+      WHERE TABLE_NAME = 'drivers' 
+      AND COLUMN_NAME = 'status'
+      AND TABLE_SCHEMA = DATABASE()
+    `);
+
+    if (statusColumnInfo.length > 0) {
+      const currentType = statusColumnInfo[0].COLUMN_TYPE;
+      if (currentType !== "enum('active','inactive','suspended')") {
+        await this.pool.query(`
+          ALTER TABLE drivers 
+          MODIFY COLUMN status ENUM('active', 'inactive', 'suspended') 
+          DEFAULT 'inactive'
+        `);
+        console.log('Modified drivers status column definition');
+      }
+    } else {
+      // In case somehow the column doesn't exist
+      await this.pool.query(`
+        ALTER TABLE drivers 
+        ADD COLUMN status ENUM('active', 'inactive', 'suspended') 
+        DEFAULT 'inactive' 
+        AFTER sacco_id
+      `);
+      console.log('Added status column to drivers table');
+    }
   }
 
   // Routes Table

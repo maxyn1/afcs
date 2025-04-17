@@ -10,7 +10,7 @@ import vehicleRoutes from './src/routes/vehicles.js';
 import adminRoutes from './src/routes/adminRoutes.js';
 import { errorHandler } from './src/utils/errorHandler.js';
 import saccoAdminRoutes from './src/routes/saccoAdmin.js';
-
+import driverRoutes from './src/routes/driver.js';
 
 dotenv.config();
 
@@ -24,6 +24,29 @@ app.use(cors({
 }));
 app.use(express.json());
 
+app.use((req, res, next) => {
+  const start = Date.now();
+  console.log('📝 Request:', {
+    timestamp: new Date().toISOString(),
+    method: req.method,
+    path: req.path,
+    query: req.query,
+    body: req.body,
+    ip: req.ip
+  });
+
+  res.on('finish', () => {
+    const duration = Date.now() - start;
+    console.log('🏁 Response:', {
+      path: req.path,
+      statusCode: res.statusCode,
+      duration: `${duration}ms`
+    });
+  });
+
+  next();
+});
+
 // API Routes
 app.use('/api/users', userRoutes);
 app.use('/api/saccos', saccoRoutes);
@@ -31,9 +54,8 @@ app.use('/api/routes', routeRoutes);
 app.use('/api/vehicles', vehicleRoutes);
 app.use('/api/wallet', walletRoutes);
 app.use('/api/admin', adminRoutes);
-app.use('/api', adminRoutes);
-
 app.use('/api/sacco-admin', saccoAdminRoutes);
+app.use('/api/driver', driverRoutes);
 
 // Error handling middleware
 app.use(errorHandler);

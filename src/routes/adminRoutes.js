@@ -61,13 +61,6 @@ const debugDriversRoute = (req, res, next) => {
 // User management routes
 router.get('/users', async (req, res) => {
   try {
-    const { role } = req.query;
-
-    if (role === 'sacco_admin') {
-      const controller = await getAdminUserController();
-      return controller.getSaccoAdmins(req, res);
-    }
-
     const controller = await getAdminUserController();
     return controller.getAllUsers(req, res);
   } catch (error) {

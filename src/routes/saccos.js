@@ -15,34 +15,11 @@ let pool;
 })();
 
 // Get all SACCOs with vehicle and route counts
-router.get('/', authMiddleware(), async (req, res) => {
+router.get('/', async (req, res) => {
   try {
-    if (req.user.role === 'sacco_admin') {
-      // Restrict to the SACCO associated with the sacco_admin
-      const [saccos] = await pool.query(
-        `SELECT 
-          s.*,
-          COUNT(DISTINCT v.id) as vehicle_count,
-          COUNT(DISTINCT r.id) as route_count
-        FROM saccos s
-        LEFT JOIN vehicles v ON v.sacco_id = s.id AND v.status = 'active'
-        LEFT JOIN trips t ON t.vehicle_id = v.id
-        LEFT JOIN routes r ON r.id = t.route_id
-        WHERE s.id = ? AND s.status != 'inactive'
-        GROUP BY s.id`,
-        [req.user.sacco_id]
-      );
-
-      return res.json(saccos.map(sacco => ({
-        ...sacco,
-        vehicle_count: Number(sacco.vehicle_count) || 0,
-        route_count: Number(sacco.route_count) || 0
-      })));
-    }
-
-    // Default behavior for other roles
-    const [saccos] = await pool.query(
-      `SELECT 
+    console.log('Fetching all SACCOs...');
+    const [saccos] = await pool.query(`
+      SELECT 
         s.*,
         COUNT(DISTINCT v.id) as vehicle_count,
         COUNT(DISTINCT r.id) as route_count
@@ -52,9 +29,9 @@ router.get('/', authMiddleware(), async (req, res) => {
       LEFT JOIN routes r ON r.id = t.route_id
       WHERE s.status != 'inactive'
       GROUP BY s.id
-      ORDER BY s.id DESC`
-    );
-
+      ORDER BY s.id DESC
+    `);
+    
     res.json(saccos.map(sacco => ({
       ...sacco,
       vehicle_count: Number(sacco.vehicle_count) || 0,
@@ -62,7 +39,9 @@ router.get('/', authMiddleware(), async (req, res) => {
     })));
   } catch (error) {
     console.error('Error fetching SACCOs:', error);
-    res.status(500).json({ message: 'Failed to fetch SACCOs' });
+    res.status(500).json({ 
+      message: 'Failed to fetch SACCOs'
+    });
   }
 });
 
@@ -118,7 +97,7 @@ router.get('/:id', async (req, res) => {
 // Add new SACCO with validation
 router.post('/', authMiddleware(), async (req, res) => {
   try {
-    const { name, registration_number, contact_email, contact_phone, user_id } = req.body;
+    const { name, registration_number, contact_email, contact_phone } = req.body;
 
     // Validate required fields with better naming
     const requiredFields = {
@@ -162,9 +141,9 @@ router.post('/', authMiddleware(), async (req, res) => {
     const [result] = await pool.query(
       `INSERT INTO saccos (
         name, registration_number, contact_email, 
-        contact_phone, status, user_id
-      ) VALUES (?, ?, ?, ?, 'active', ?)`,
-      [name, registration_number, contact_email, contact_phone, user_id]
+        contact_phone, status
+      ) VALUES (?, ?, ?, ?, 'active')`,
+      [name, registration_number, contact_email, contact_phone]
     );
 
     const newSacco = {
@@ -192,7 +171,7 @@ router.post('/', authMiddleware(), async (req, res) => {
 router.put('/:id', authMiddleware(), async (req, res) => {
   try {
     const { id } = req.params;
-    const { name, registration_number, contact_email, contact_phone, user_id } = req.body;
+    const { name, registration_number, contact_email, contact_phone } = req.body;
 
     // Check if SACCO exists
     const [existing] = await pool.query(
@@ -221,9 +200,9 @@ router.put('/:id', authMiddleware(), async (req, res) => {
     const [result] = await pool.query(
       `UPDATE saccos 
        SET name = ?, registration_number = ?, 
-           contact_email = ?, contact_phone = ?, user_id = ?
+           contact_email = ?, contact_phone = ?
        WHERE id = ?`,
-      [name, registration_number, contact_email, contact_phone, user_id, id]
+      [name, registration_number, contact_email, contact_phone, id]
     );
 
     if (result.affectedRows === 0) {

@@ -53,79 +53,89 @@ export const registerUser = async (req, res) => {
 
 export const loginUser = async (req, res) => {
   try {
+    console.log('Login attempt:', req.body); // Debugging: Log incoming request data
+
     const { email, password } = req.body;
 
-    // Find user by email and get sacco_id based on role
-    let params = [email];
-
-    // First get user basic info and role
+    // Find user by email
+    console.log('Querying user by email:', email); // Debugging: Log email being queried
     const [users] = await pool.query(
-      'SELECT * FROM users WHERE email = ?',
-      params
+      'SELECT id, name, email, password_hash, role, status FROM users WHERE email = ?',
+      [email]
     );
 
     if (users.length === 0) {
+      console.warn('No user found for email:', email); // Debugging: Log if no user is found
       return res.status(401).json({ message: 'Invalid credentials' });
     }
 
     const user = users[0];
+    console.log('User found:', user); // Debugging: Log user details
 
-    let saccoId = null;
+    // Check if the account is active
+    if (user.status !== 'active') {
+      console.warn('Inactive account for user ID:', user.id); // Debugging: Log inactive account
+      return res.status(403).json({ message: 'Account is not active' });
+    }
 
+    // Compare passwords
+    console.log('Comparing passwords for user ID:', user.id); // Debugging: Log password comparison
+    const isMatch = await bcrypt.compare(password, user.password_hash);
+    if (!isMatch) {
+      console.warn('Password mismatch for user ID:', user.id); // Debugging: Log password mismatch
+      return res.status(401).json({ message: 'Invalid credentials' });
+    }
+
+    // Determine additional role-specific data
+    let roleData = {};
     if (user.role === 'driver') {
-      // Get sacco_id from drivers table
+      console.log('Fetching driver-specific data for user ID:', user.id); // Debugging: Log role-specific query
       const [driverRows] = await pool.query(
         'SELECT sacco_id FROM drivers WHERE user_id = ?',
         [user.id]
       );
       if (driverRows.length > 0) {
-        saccoId = driverRows[0].sacco_id;
+        roleData.sacco_id = driverRows[0].sacco_id;
       }
     } else if (user.role === 'sacco_admin') {
-      // Get sacco_id from saccos table by matching admin user
-      // Assuming sacco_admin users have a link to sacco via a sacco_admins table or similar
-      // Since no such table found, try to find sacco_id by user id in saccos or other logic
-      // For now, try to find sacco_id from saccos where contact_email matches user email
+      console.log('Fetching sacco admin-specific data for email:', user.email); // Debugging: Log role-specific query
       const [saccoRows] = await pool.query(
-        'SELECT id FROM saccos WHERE contact_email = ?',
+        'SELECT id as sacco_id FROM saccos WHERE contact_email = ?',
         [user.email]
       );
       if (saccoRows.length > 0) {
-        saccoId = saccoRows[0].id;
+        roleData.sacco_id = saccoRows[0].sacco_id;
       }
     }
 
-    // Compare passwords
-    const isMatch = await bcrypt.compare(password, user.password_hash);
-    if (!isMatch) {
-      return res.status(401).json({ message: 'Invalid credentials' });
-    }
+    // Update last login timestamp
+    console.log('Updating last login for user ID:', user.id); // Debugging: Log last login update
+    await pool.query('UPDATE users SET last_login = NOW() WHERE id = ?', [user.id]);
 
-    // Update last login
-    await pool.query(
-      'UPDATE users SET last_login = NOW() WHERE id = ?',
-      [user.id]
-    );
+    // Generate JWT token
+    console.log('Generating JWT token for user ID:', user.id); // Debugging: Log token generation
+    const tokenPayload = {
+      userId: user.id,
+      email: user.email,
+      role: user.role,
+      ...roleData,
+    };
+    const token = jwt.sign(tokenPayload, config.jwtSecret, { expiresIn: '24h' });
 
-    // Create JWT token including sacco_id
-    const token = jwt.sign(
-      { userId: user.id, email: user.email, role: user.role, sacco_id: saccoId },
-      config.jwtSecret,
-      { expiresIn: '24h' }
-    );
-
+    console.log('Login successful for user ID:', user.id); // Debugging: Log successful login
     res.json({
       message: 'Login successful',
       user: {
         id: user.id,
         name: user.name,
         email: user.email,
-        role: user.role
+        role: user.role,
+        ...roleData,
       },
-      token
+      token,
     });
   } catch (error) {
-    console.error('Login error:', error.message);
+    console.error('Login error:', error.message); // Debugging: Log error details
     res.status(500).json({ message: 'Error logging in' });
   }
 };

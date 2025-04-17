@@ -30,6 +30,33 @@ export class DatabaseSetup {
         queueLimit: 0
       });
 
+      // Add query logging
+      const oldQuery = this.pool.query.bind(this.pool);
+      this.pool.query = async (...args) => {
+        const start = Date.now();
+        console.log('🔍 DB Query:', {
+          sql: args[0],
+          params: args[1] || []
+        });
+
+        try {
+          const result = await oldQuery(...args);
+          const duration = Date.now() - start;
+          console.log('✅ DB Result:', {
+            duration: `${duration}ms`,
+            rowCount: Array.isArray(result[0]) ? result[0].length : result[0].affectedRows
+          });
+          return result;
+        } catch (error) {
+          console.error('❌ DB Error:', {
+            error: error.message,
+            sql: args[0],
+            params: args[1] || []
+          });
+          throw error;
+        }
+      };
+
       // Create tables
       await this.createUsersTable();
       await this.createSaccosTable();
@@ -42,9 +69,6 @@ export class DatabaseSetup {
       await this.createMaintenanceLogsTable();
       await this.createFeedbackTable();
       await this.setupIndexes();
-
-      // Add user_id column to saccos table
-      await this.addUserIdToSaccosTable();
 
       // Add test data
       await this.addTestData();
@@ -112,36 +136,6 @@ export class DatabaseSetup {
     await this.createTable('saccos', createQuery);
   }
 
-  async addUserIdToSaccosTable() {
-    try {
-      // Check if the column already exists
-      const [columns] = await this.pool.query(`
-        SELECT COLUMN_NAME 
-        FROM INFORMATION_SCHEMA.COLUMNS 
-        WHERE TABLE_SCHEMA = ? AND TABLE_NAME = 'saccos' AND COLUMN_NAME = 'user_id'
-      `, [config.db.database]);
-
-      if (columns.length === 0) {
-        // Add the user_id column
-        await this.pool.query(`
-          ALTER TABLE saccos 
-          ADD COLUMN user_id VARCHAR(36),
-          ADD CONSTRAINT fk_saccos_user_id FOREIGN KEY (user_id) REFERENCES users(id)
-        `);
-        console.log('user_id column added to saccos table successfully');
-      } else {
-        console.log('user_id column already exists in saccos table, skipping addition');
-      }
-    } catch (error) {
-      if (error.code === 'ER_DUP_FIELDNAME') {
-        console.log('user_id column already exists in saccos table, skipping addition');
-      } else {
-        console.error('Error adding user_id column to saccos table:', error);
-        throw error;
-      }
-    }
-  }
-
   // Vehicles Table
   async createVehiclesTable() {
     const createQuery = `
@@ -177,6 +171,36 @@ export class DatabaseSetup {
       )
     `;
     await this.createTable('drivers', createQuery);
+
+    // Check and modify drivers status column if needed
+    const [statusColumnInfo] = await this.pool.query(`
+      SELECT COLUMN_TYPE 
+      FROM INFORMATION_SCHEMA.COLUMNS 
+      WHERE TABLE_NAME = 'drivers' 
+      AND COLUMN_NAME = 'status'
+      AND TABLE_SCHEMA = DATABASE()
+    `);
+
+    if (statusColumnInfo.length > 0) {
+      const currentType = statusColumnInfo[0].COLUMN_TYPE;
+      if (currentType !== "enum('active','inactive','suspended')") {
+        await this.pool.query(`
+          ALTER TABLE drivers 
+          MODIFY COLUMN status ENUM('active', 'inactive', 'suspended') 
+          DEFAULT 'inactive'
+        `);
+        console.log('Modified drivers status column definition');
+      }
+    } else {
+      // In case somehow the column doesn't exist
+      await this.pool.query(`
+        ALTER TABLE drivers 
+        ADD COLUMN status ENUM('active', 'inactive', 'suspended') 
+        DEFAULT 'inactive' 
+        AFTER sacco_id
+      `);
+      console.log('Added status column to drivers table');
+    }
   }
 
   // Routes Table

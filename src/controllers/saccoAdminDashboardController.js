@@ -21,25 +21,36 @@ class SaccoAdminDashboardController {
           WHERE sacco_id = ?
         `, [saccoId]),
         this.pool.query(`
-          SELECT COUNT(*) as totalRoutes
-          FROM routes
-          WHERE sacco_id = ?
+          SELECT COUNT(DISTINCT r.id) as totalRoutes
+          FROM routes r
+          INNER JOIN trips t ON r.id = t.route_id
+          INNER JOIN vehicles v ON t.vehicle_id = v.id
+          WHERE v.sacco_id = ?
         `, [saccoId]),
         this.pool.query(`
           SELECT 
-            SUM(amount) as dailyRevenue
-          FROM wallet_transactions
-          WHERE sacco_id = ? AND DATE(transaction_time) = CURDATE()
+            COALESCE(SUM(wt.amount), 0) as dailyRevenue
+          FROM wallet_transactions wt
+          INNER JOIN bookings b ON wt.user_id = b.user_id
+          INNER JOIN trips t ON b.trip_id = t.id
+          INNER JOIN vehicles v ON t.vehicle_id = v.id
+          WHERE v.sacco_id = ? 
+          AND DATE(wt.transaction_time) = CURDATE()
+          AND wt.transaction_type = 'payment'
+          AND wt.status = 'completed'
         `, [saccoId]),
         this.pool.query(`
           SELECT COUNT(*) as totalTrips
-          FROM trips
-          WHERE sacco_id = ?
+          FROM trips t
+          INNER JOIN vehicles v ON t.vehicle_id = v.id
+          WHERE v.sacco_id = ?
         `, [saccoId]),
         this.pool.query(`
-          SELECT COUNT(*) as totalPassengers
-          FROM passengers
-          WHERE sacco_id = ?
+          SELECT COUNT(DISTINCT b.user_id) as totalPassengers
+          FROM bookings b
+          INNER JOIN trips t ON b.trip_id = t.id
+          INNER JOIN vehicles v ON t.vehicle_id = v.id
+          WHERE v.sacco_id = ?
         `, [saccoId])
       ]);
 

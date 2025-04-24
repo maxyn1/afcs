@@ -3,26 +3,59 @@ import { config } from '../config/config.js';
 
 class MpesaService {
   constructor() {
-    this.consumerKey = config.mpesa.consumerKey;
-    this.consumerSecret = config.mpesa.consumerSecret;
-    this.businessShortCode = config.mpesa.businessShortCode;
-    this.passkey = config.mpesa.passkey;
-    this.callbackURL = `${config.api.baseUrl}/api/mpesa/callback`;
+    // Debug config values
+    console.log('Initializing MPesa Service with config:', {
+      consumerKey: config.mpesa?.consumerKey ? 'Present' : 'Missing',
+      consumerSecret: config.mpesa?.consumerSecret ? 'Present' : 'Missing',
+      businessShortCode: config.mpesa?.businessShortCode,
+      baseUrl: config.api?.baseUrl,
+    });
+
+    if (!config.mpesa) {
+      throw new Error('MPesa configuration is missing');
+    }
+
+    this.consumerKey = 'DW5SVll8OWGtJntrDSWwrx8VRTZQNi1LpeCYRC95OhAhiVrE';
+    this.consumerSecret = 'A1jzCcNbjiG72GfinAtRNDMUZ9chXV48YHSprTtG1MY0nawp9glwyuIxmTX5FN3f';
+    this.businessShortCode = 174379;
+    this.passkey = 'bfb279f9aa9bdbcf158e97dd71a467cd2e0c893059b10f78e6b72ada1ed2c919';
+    this.callbackURL = `https://3e4a-197-156-144-2.ngrok-free.app/api/wallet/mpesa/callback`;
     this.token = null;
+
+    console.log('MPesa Service initialized with callback URL:', this.callbackURL);
   }
 
   async getAuthToken() {
-    const auth = Buffer.from(`${this.consumerKey}:${this.consumerSecret}`).toString('base64');
-    const response = await axios.get(
-      'https://sandbox.safaricom.co.ke/oauth/v1/generate?grant_type=client_credentials',
-      {
-        headers: {
-          Authorization: `Basic ${auth}`
+    try {
+      console.log('Requesting MPesa auth token...');
+      const auth = Buffer.from(`${this.consumerKey}:${this.consumerSecret}`).toString('base64');
+      console.log('Generated auth header (Base64):', auth);
+
+      const response = await axios.get(
+        'https://sandbox.safaricom.co.ke/oauth/v1/generate?grant_type=client_credentials',
+        {
+          headers: {
+            Authorization: `Basic ${auth}`
+          }
         }
-      }
-    );
-    this.token = response.data.access_token;
-    return this.token;
+      );
+
+      console.log('Auth token response:', {
+        status: response.status,
+        hasToken: !!response.data.access_token,
+        tokenLength: response.data.access_token?.length
+      });
+
+      this.token = response.data.access_token;
+      return this.token;
+    } catch (error) {
+      console.error('Error getting auth token:', {
+        message: error.message,
+        response: error.response?.data,
+        status: error.response?.status
+      });
+      throw error;
+    }
   }
 
   async initiateSTKPush(phoneNumber, amount, accountReference) {

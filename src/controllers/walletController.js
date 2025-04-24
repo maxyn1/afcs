@@ -38,29 +38,27 @@ class WalletController {
   }
 
   async topUp(req, res) {
-    const { amount, payment_method = 'mpesa' } = req.body;
-    
+    const { amount, payment_method = 'mpesa', phoneNumber } = req.body;
+
+    if (!phoneNumber) {
+      return res.status(400).json({ message: 'Phone number is required for M-Pesa payment' });
+    }
+
     try {
-      await this.pool.beginTransaction();
+      const mpesaService = await import('../services/mpesaService.js').then(m => m.default);
+      const token = req.mpesaToken;
+      const mpesaResponse = await mpesaService.initiateSTKPush(phoneNumber, amount, `WalletTopUp-${req.user.userId}`, token);
 
-      await this.pool.query(
-        `INSERT INTO wallet_transactions 
-         (user_id, amount, transaction_type, payment_method, description) 
-         VALUES (?, ?, 'top_up', ?, 'Wallet top up')`,
-        [req.user.userId, amount, payment_method]
-      );
+      // Optionally, you can store the transaction initiation details here for tracking
 
-      await this.pool.query(
-        'UPDATE users SET balance = balance + ? WHERE id = ?',
-        [amount, req.user.userId]
-      );
-
-      await this.pool.commit();
-      res.json({ message: 'Top up successful' });
+      res.json({
+        message: 'STK Push initiated',
+        checkoutRequestId: mpesaResponse.CheckoutRequestID || mpesaResponse.CheckoutRequestId || null,
+        response: mpesaResponse
+      });
     } catch (error) {
-      await this.pool.rollback();
-      console.error('Top up error:', error);
-      res.status(500).json({ message: 'Error processing top up' });
+      console.error('M-Pesa STK Push initiation error:', error);
+      res.status(500).json({ message: 'Error initiating M-Pesa payment' });
     }
   }
 }

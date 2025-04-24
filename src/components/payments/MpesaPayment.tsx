@@ -37,7 +37,7 @@ const MpesaPayment = ({ amount, onSuccess, onCancel }: MpesaPaymentProps) => {
         ? `254${phoneNumber.substring(1)}` 
         : phoneNumber;
 
-      const response = await api.post('/users/wallet/topup', {
+      const response = await api.post('/wallet/topup', {
         amount,
         payment_method: "mpesa",
         phoneNumber: formattedPhone

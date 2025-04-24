@@ -48,11 +48,11 @@ interface Vehicle {
 }
 
 class AuthService {
-  private API_URL = '/users';
+  private API_URL = '';
 
   async login(email: string, password: string): Promise<User> {
     try {
-      const response = await api.post<LoginResponse>(`${this.API_URL}/login`, { 
+      const response = await api.post<LoginResponse>(`/users/login`, { 
         email, 
         password 
       });
@@ -82,7 +82,7 @@ class AuthService {
 
   async register(data: RegisterData): Promise<void> {
     try {
-      await api.post(`${this.API_URL}/register`, {
+      await api.post(`/users/register`, {
         fullName: data.fullName,
         email: data.email,
         phone: data.phone,
@@ -207,9 +207,13 @@ class AuthService {
     }
   }
 
-  async topUpWallet(amount: number, paymentMethod: string = 'mpesa'): Promise<void> {
+  async topUpWallet(amount: number, paymentMethod: string = 'mpesa', phoneNumber?: string): Promise<void> {
     try {
-      await api.post('/wallet/topup', { amount, payment_method: paymentMethod });
+      const payload: { amount: number; payment_method: string; phoneNumber?: string } = { amount, payment_method: paymentMethod };
+      if (phoneNumber) {
+        payload.phoneNumber = phoneNumber;
+      }
+      await api.post('/wallet/topup', payload);
     } catch (error) {
       console.error('Error topping up wallet:', error);
       throw error;

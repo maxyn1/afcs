@@ -44,6 +44,8 @@ import SaccoDrivers from "./pages/sacco/SaccoDrivers";
 import SaccoVehicles from "./pages/sacco/SaccoVehicles";
 import SaccoRoutes from "./pages/sacco/SaccoRoutes";
 import SaccoAnalytics from "./pages/sacco/SaccoAnalytics";
+import SaccoPayments from "./pages/sacco/SaccoPayments";
+import SaccoSettings from "./pages/sacco/SaccoSettings";
 
 const queryClient = new QueryClient();
 
@@ -223,6 +225,23 @@ const App = () => (
                 </SaccoAdminLayout>
               </ProtectedRoute>
             } />
+
+            <Route path="/sacco-admin/payments" element={
+              <ProtectedRoute requireSaccoAdmin>
+                <SaccoAdminLayout>
+                  <SaccoPayments />
+                </SaccoAdminLayout>
+              </ProtectedRoute>
+            } />
+            <Route path="/sacco-admin/settings" element={
+              <ProtectedRoute requireSaccoAdmin>
+                <SaccoAdminLayout>
+                  <SaccoSettings />
+                </SaccoAdminLayout>
+              </ProtectedRoute>
+            } />
+
+            {/* Catch-all route for 404 */}
             
             {/* Catch-all route */}
             <Route path="*" element={<Navigate to="/" replace />} />

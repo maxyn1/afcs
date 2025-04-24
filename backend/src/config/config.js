@@ -9,15 +9,27 @@ const __dirname = path.dirname(__filename);
 // Load environment variables
 dotenv.config({ path: path.resolve(__dirname, '../../../.env') });
 
-export default {
+export const config = {
   db: {
     host: process.env.DB_HOST || 'localhost',
     user: process.env.DB_USER || 'root',
     password: process.env.DB_PASSWORD || 'your_database_password',
-    database: process.env.DB_NAME || '',//This is one is not needed since it is being handledin the env file that is what the database.js script will make when it runs but for testing you can add your through here
+    database: process.env.DB_NAME || '',
   },
   app: {
     port: process.env.PORT || 3000,
   },
+  api: {
+    baseUrl: process.env.API_BASE_URL || 'http://localhost:3000',
+  },
   jwtSecret: process.env.JWT_SECRET || 'your-secret-key',
+  mpesa: {
+    consumerKey: process.env.MPESA_CONSUMER_KEY || '',
+    consumerSecret: process.env.MPESA_CONSUMER_SECRET || '',
+    businessShortCode: process.env.MPESA_BUSINESS_SHORT_CODE || '',
+    passkey: process.env.MPESA_PASSKEY || '',
+    callbackURL: process.env.MPESA_CALLBACK_URL || '',
+  },
 };
+
+export default config;

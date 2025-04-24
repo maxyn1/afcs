@@ -4,18 +4,21 @@ import {
   CardDescription, 
   CardHeader, 
   CardTitle 
-} from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
+} from "../components/ui/card";
+import { Button } from "../components/ui/button";
 import { Wallet as WalletIcon, Plus, CreditCard } from "lucide-react";
 import { useEffect, useState } from "react";
-import AuthService from "@/services/authService";
-import { useToast } from "@/components/ui/use-toast";
+import AuthService from "../services/authService";
+import { useToast } from "../components/ui/use-toast";
+import MpesaPayment from "../components/payments/MpesaPayment";
 
 const Wallet = () => {
   const { toast } = useToast();
   const [balance, setBalance] = useState<number>(0);
   const [transactions, setTransactions] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [showMpesaPayment, setShowMpesaPayment] = useState(false);
+  const [topUpAmount, setTopUpAmount] = useState(0);
 
   useEffect(() => {
     loadWalletData();
@@ -44,22 +47,22 @@ const Wallet = () => {
     }
   };
 
-  const handleTopUp = async (amount: number) => {
-    try {
-      await AuthService.topUpWallet(amount);
-      loadWalletData(); // Refresh data
-      toast({
-        title: "Success",
-        description: "Wallet topped up successfully"
-      });
-    } catch (error) {
-      console.error('Top up error:', error);
-      toast({
-        variant: "destructive",
-        title: "Error",
-        description: "Failed to top up wallet"
-      });
-    }
+  const handleTopUpClick = (amount: number) => {
+    setTopUpAmount(amount);
+    setShowMpesaPayment(true);
+  };
+
+  const handlePaymentSuccess = () => {
+    setShowMpesaPayment(false);
+    loadWalletData();
+    toast({
+      title: "Success",
+      description: "Wallet topped up successfully"
+    });
+  };
+
+  const handlePaymentCancel = () => {
+    setShowMpesaPayment(false);
   };
 
   return (
@@ -84,7 +87,7 @@ const Wallet = () => {
               <p className="text-muted-foreground mt-2">Last updated today at 10:30 AM</p>
               
               <div className="flex flex-wrap gap-3 mt-6">
-                <Button className="flex items-center gap-2" onClick={() => handleTopUp(1000)}>
+                <Button className="flex items-center gap-2" onClick={() => handleTopUpClick(1)}>
                   <Plus size={16} /> Add Money
                 </Button>
                 <Button variant="outline" className="flex items-center gap-2">
@@ -112,6 +115,14 @@ const Wallet = () => {
           </CardContent>
         </Card>
       </div>
+
+      {showMpesaPayment && (
+        <MpesaPayment 
+          amount={topUpAmount} 
+          onSuccess={handlePaymentSuccess} 
+          onCancel={handlePaymentCancel} 
+        />
+      )}
     </div>
   );
 };

@@ -17,12 +17,26 @@ let pool;
 router.get('/', async (req, res) => {
   try {
     const [routes] = await pool.query(
-      'SELECT id, start_location, end_location, base_fare FROM routes'
+      `SELECT 
+        id,
+        start_location,
+        end_location,
+        base_fare,
+        0 AS distance,
+        'active' AS status,
+        0 AS assigned_vehicles
+      FROM routes`
     );
     
     const formattedRoutes = routes.map(route => ({
-      route: `${route.start_location} - ${route.end_location}`,
-      fare: route.base_fare
+      id: route.id,
+      name: `${route.start_location} - ${route.end_location}`,
+      start_point: route.start_location,
+      end_point: route.end_location,
+      distance: route.distance,
+      fare: route.base_fare,
+      status: route.status,
+      assigned_vehicles: route.assigned_vehicles
     }));
     
     res.json(formattedRoutes);

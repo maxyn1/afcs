@@ -8,18 +8,19 @@ class MpesaService {
       consumerKey: config.mpesa?.consumerKey ? 'Present' : 'Missing',
       consumerSecret: config.mpesa?.consumerSecret ? 'Present' : 'Missing',
       businessShortCode: config.mpesa?.businessShortCode,
-      baseUrl: config.api?.baseUrl,
+      passkey: config.mpesa?.passkey ? 'Present' : 'Missing',
+      callbackURL: config.mpesa?.callbackURL,
     });
 
     if (!config.mpesa) {
       throw new Error('MPesa configuration is missing');
     }
 
-    this.consumerKey = 'DW5SVll8OWGtJntrDSWwrx8VRTZQNi1LpeCYRC95OhAhiVrE';
-    this.consumerSecret = 'A1jzCcNbjiG72GfinAtRNDMUZ9chXV48YHSprTtG1MY0nawp9glwyuIxmTX5FN3f';
-    this.businessShortCode = 174379;
-    this.passkey = 'bfb279f9aa9bdbcf158e97dd71a467cd2e0c893059b10f78e6b72ada1ed2c919';
-    this.callbackURL = `https://3e4a-197-156-144-2.ngrok-free.app/api/wallet/mpesa/callback`;
+    this.consumerKey = config.mpesa.consumerKey;
+    this.consumerSecret = config.mpesa.consumerSecret;
+    this.businessShortCode = config.mpesa.businessShortCode;
+    this.passkey = config.mpesa.passkey;
+    this.callbackURL = config.mpesa.callbackURL;
     this.token = null;
 
     console.log('MPesa Service initialized with callback URL:', this.callbackURL);

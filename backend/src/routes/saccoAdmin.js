@@ -8,6 +8,6 @@ const pool = await connectDB();
 const saccoAdminDashboardController = new SaccoAdminDashboardController(pool);
 
 // SACCO Admin Dashboard Stats
-router.get('/dashboard-stats', authMiddleware(), (req, res) => saccoAdminDashboardController.getDashboardStats(req, res));
+router.get('/dashboard-stats', authMiddleware(['sacco_admin']), (req, res) => saccoAdminDashboardController.getDashboardStats(req, res));
 
 export default router;

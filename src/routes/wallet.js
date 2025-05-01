@@ -73,21 +73,27 @@ router.post('/topup', debugMiddleware, authMiddleware(), mpesaAuthMiddleware, as
   }
 });
 
-router.post('/mpesa/callback', debugMiddleware, async (req, res) => {
+router.post('/mpesa/manual', debugMiddleware, authMiddleware(), async (req, res) => {
+  console.log('📝 Manual M-Pesa route accessed:', {
+    headers: {
+      auth: req.headers.authorization ? 'Present' : 'Missing',
+      contentType: req.headers['content-type']
+    },
+    user: req.user,
+    body: req.body
+  });
+
   try {
-    await mpesaController.mpesaCallback(req, res);
+    await mpesaController.postManualTransaction(req, res);
   } catch (error) {
-    console.error('M-Pesa callback error:', {
+    console.error('Manual M-Pesa transaction error:', {
       error: error.message,
       stack: error.stack,
-      body: req.body
+      userId: req.user?.id,
+      amount: req.body.amount
     });
-    res.status(500).json({ ResultCode: 1, ResultDesc: 'Internal Server Error' });
+    res.status(500).json({ error: 'Internal server error' });
   }
-});
-
-router.get('/mpesa/callback', debugMiddleware, (req, res) => {
-  res.status(200).send('M-Pesa callback endpoint is active');
 });
 
 export default router;

@@ -8,14 +8,13 @@ export class DatabaseSetup {
 
   async initializeDatabase() {
     try {
-      // Create connection to MySQL server
+      // Create connection to MySQL server with minimal logging
       const connection = await mysql.createConnection({
         host: config.db.host,
         user: config.db.user,
         password: config.db.password,
       });
 
-      // Create database if not exists
       await connection.query(`CREATE DATABASE IF NOT EXISTS ${config.db.database}`);
       await connection.end();
 
@@ -30,34 +29,19 @@ export class DatabaseSetup {
         queueLimit: 0
       });
 
-      // Add query logging
+      // Add minimal query logging
       const oldQuery = this.pool.query.bind(this.pool);
       this.pool.query = async (...args) => {
-        const start = Date.now();
-        console.log('🔍 DB Query:', {
-          sql: args[0],
-          params: args[1] || []
-        });
-
         try {
           const result = await oldQuery(...args);
-          const duration = Date.now() - start;
-          console.log('✅ DB Result:', {
-            duration: `${duration}ms`,
-            rowCount: Array.isArray(result[0]) ? result[0].length : result[0].affectedRows
-          });
           return result;
         } catch (error) {
-          console.error('❌ DB Error:', {
-            error: error.message,
-            sql: args[0],
-            params: args[1] || []
-          });
+          console.error('Database Error:', error.message);
           throw error;
         }
       };
 
-      // Create tables
+      // Create tables with minimal logging
       await this.createUsersTable();
       await this.createSaccosTable();
       await this.createVehiclesTable();
@@ -68,33 +52,30 @@ export class DatabaseSetup {
       await this.createWalletTransactionsTable();
       await this.createMaintenanceLogsTable();
       await this.createFeedbackTable();
+      
+      // Setup indexes
       await this.setupIndexes();
-
+      
       // Add test data
       await this.addTestData();
 
-      console.log('Database and test data initialized successfully');
+      console.log('Database initialized successfully');
       return this.pool;
     } catch (error) {
-      console.error('Database initialization error:', error);
+      console.error('Database initialization failed:', error.message);
       throw error;
     }
   }
 
   async createTable(tableName, createTableQuery) {
     try {
-      // Check if table exists
-      const [tables] = await this.pool.query(
-        `SHOW TABLES LIKE '${tableName}'`
-      );
-
-      // Create table if it doesn't exist
+      const [tables] = await this.pool.query(`SHOW TABLES LIKE '${tableName}'`);
       if (tables.length === 0) {
         await this.pool.query(createTableQuery);
-        console.log(`${tableName} table created successfully`);
+        console.log(`Created table: ${tableName}`);
       }
     } catch (error) {
-      console.error(`Error creating ${tableName} table:`, error);
+      console.error(`Error creating ${tableName}:`, error.message);
       throw error;
     }
   }
@@ -309,141 +290,57 @@ export class DatabaseSetup {
     await this.createTable('feedback', createQuery);
   }
 
-  // Setup indexes
   async setupIndexes() {
     try {
-      // Check if index exists before creating
-      const checkIndex = async (connection, table, indexName) => {
-        const [indexes] = await connection.query(
-          'SELECT COUNT(*) as count FROM INFORMATION_SCHEMA.STATISTICS WHERE TABLE_SCHEMA = ? AND TABLE_NAME = ? AND INDEX_NAME = ?',
-          [config.db.database, table, indexName]
-        );
-        return indexes[0].count > 0;
-      };
-
-      // Create index with retries
-      const createIndexWithRetry = async (connection, table, indexName, columns) => {
-        const MAX_RETRIES = 3;
-        let retryCount = 0;
-        
-        while (retryCount < MAX_RETRIES) {
-          try {
-            const exists = await checkIndex(connection, table, indexName);
-            if (!exists) {
-              await connection.query(`CREATE INDEX ${indexName} ON ${table}(${columns})`);
-              console.log(`Created index ${indexName} on ${table}`);
-            }
-            return true;
-          } catch (err) {
-            if (err.code === 'ER_DUP_KEYNAME') {
-              return true; // Index already exists
-            }
-            if (err.code === 'ER_LOCK_DEADLOCK' && retryCount < MAX_RETRIES - 1) {
-              retryCount++;
-              await new Promise(resolve => setTimeout(resolve, 1000 * Math.pow(2, retryCount)));
-              continue;
-            }
-            throw err;
-          }
-        }
-        return false;
-      };
-
-      // Define indexes
-      const indexes = [
-        { table: 'saccos', name: 'idx_saccos_status_v1', columns: 'status' },
-        { table: 'vehicles', name: 'idx_vehicles_status_v1', columns: 'status' },
-        { table: 'trips', name: 'idx_trips_status_v1', columns: 'status' },
-        { table: 'wallet_transactions', name: 'idx_wallet_trans_status_v1', columns: 'status' }
-      ];
-
-      // Create indexes one at a time without transaction
       const connection = await this.pool.getConnection();
       try {
+        const indexes = [
+          { table: 'saccos', name: 'idx_saccos_status_v1', columns: 'status' },
+          { table: 'vehicles', name: 'idx_vehicles_status_v1', columns: 'status' },
+          { table: 'trips', name: 'idx_trips_status_v1', columns: 'status' },
+          { table: 'wallet_transactions', name: 'idx_wallet_trans_status_v1', columns: 'status' }
+        ];
+
         for (const idx of indexes) {
-          await createIndexWithRetry(connection, idx.table, idx.name, idx.columns);
+          const [exists] = await connection.query(
+            'SELECT COUNT(*) as count FROM INFORMATION_SCHEMA.STATISTICS WHERE TABLE_SCHEMA = ? AND TABLE_NAME = ? AND INDEX_NAME = ?',
+            [config.db.database, idx.table, idx.name]
+          );
+          
+          if (!exists[0].count) {
+            await connection.query(`CREATE INDEX ${idx.name} ON ${idx.table}(${idx.columns})`);
+          }
         }
-        console.log('Indexes setup completed successfully');
       } finally {
         connection.release();
       }
     } catch (error) {
-      console.error('Error in setupIndexes:', error);
-      // Don't throw the error, just log it and continue
-      // This allows the application to start even if some indexes fail
-      console.log('Continuing despite index creation error');
+      console.error('Index setup error:', error.message);
     }
   }
 
   async addTestData() {
-    const MAX_RETRIES = 3;
-    let retryCount = 0;
-
-    while (retryCount < MAX_RETRIES) {
-      try {
-        const connection = await this.pool.getConnection();
-        try {
-          await connection.beginTransaction();
-
-          // Check if data already exists
-          const [existingSaccos] = await connection.query('SELECT COUNT(*) as count FROM saccos');
-          if (existingSaccos[0].count === 0) {
-            // Add test SACCOs
-            await connection.query(`
-              INSERT INTO saccos (name, registration_number, contact_email, contact_phone, status) VALUES
-              ('Metro Trans', 'MT123', 'info@metrotrans.co.ke', '+254711111111', 'active'),
-              ('City Hoppa', 'CH456', 'info@cityhoppa.co.ke', '+254722222222', 'active'),
-              ('Forward Travelers', 'FT789', 'info@forward.co.ke', '+254733333333', 'active')
-            `);
-          }
-
-          // Check and add routes
-          const [existingRoutes] = await connection.query('SELECT COUNT(*) as count FROM routes');
-          if (existingRoutes[0].count === 0) {
-            await connection.query(`
-              INSERT INTO routes (start_location, end_location, base_fare, distance_km, estimated_duration_minutes) VALUES
-              ('Nairobi', 'Mombasa', 1000, 485, 420),
-              ('Nairobi', 'Kisumu', 800, 340, 360),
-              ('Nairobi', 'Nakuru', 500, 158, 120)
-            `);
-          }
-
-          // Add vehicles only if none exist
-          const [existingVehicles] = await connection.query('SELECT COUNT(*) as count FROM vehicles');
-          if (existingVehicles[0].count === 0) {
-            const [saccos] = await connection.query('SELECT id FROM saccos');
-            for (const sacco of saccos) {
-              await connection.query(`
-                INSERT INTO vehicles (sacco_id, registration_number, capacity, status)
-                VALUES (?, CONCAT('KA', FLOOR(RAND() * 1000), 'A'), 45, 'active')
-              `, [sacco.id]);
-            }
-          }
-
-          await connection.commit();
-          console.log('Test data added successfully');
-          break; // Exit the retry loop on success
-
-        } catch (error) {
-          await connection.rollback();
-          if (error.code === 'ER_LOCK_DEADLOCK' && retryCount < MAX_RETRIES - 1) {
-            console.log(`Deadlock detected, retrying... (Attempt ${retryCount + 1}/${MAX_RETRIES})`);
-            retryCount++;
-            // Add a small delay before retrying
-            await new Promise(resolve => setTimeout(resolve, 1000 * retryCount));
-            continue;
-          }
-          throw error;
-        } finally {
-          connection.release();
-        }
-      } catch (error) {
-        if (retryCount === MAX_RETRIES - 1) {
-          console.error('Error adding test data:', error);
-          break;
-        }
-        retryCount++;
+    const connection = await this.pool.getConnection();
+    try {
+      await connection.beginTransaction();
+      
+      // Add test data with minimal logging
+      const [existingSaccos] = await connection.query('SELECT COUNT(*) as count FROM saccos');
+      if (existingSaccos[0].count === 0) {
+        await connection.query(`
+          INSERT INTO saccos (name, registration_number, contact_email, contact_phone, status) VALUES
+          ('Metro Trans', 'MT123', 'info@metrotrans.co.ke', '+254711111111', 'active'),
+          ('City Hoppa', 'CH456', 'info@cityhoppa.co.ke', '+254722222222', 'active'),
+          ('Forward Travelers', 'FT789', 'info@forward.co.ke', '+254733333333', 'active')
+        `);
       }
+
+      await connection.commit();
+    } catch (error) {
+      await connection.rollback();
+      console.error('Test data setup error:', error.message);
+    } finally {
+      connection.release();
     }
   }
 }

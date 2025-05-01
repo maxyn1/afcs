@@ -12,18 +12,34 @@ const api = axios.create({
 // Add request debugging
 api.interceptors.request.use(
   (config) => {
-    console.log('🚀 API Request:', {
-      method: config.method?.toUpperCase(),
-      url: config.url,
-      headers: config.headers,
-      data: config.data,
-      params: config.params
-    });
     const user = localStorage.getItem('user');
     if (user) {
       const parsedUser = JSON.parse(user);
-      config.headers['Authorization'] = `Bearer ${parsedUser.token || ''}`;
+      const token = parsedUser.token || '';
+      config.headers['Authorization'] = `Bearer ${token}`;
+      
+      // Debug token
+      console.log('🔑 Auth Token:', {
+        token,
+        tokenLength: token.length,
+        tokenFirstChars: token.substring(0, 10) + '...',
+        tokenLastChars: '...' + token.substring(token.length - 10)
+      });
     }
+
+    console.log('🚀 API Request:', {
+      method: config.method?.toUpperCase(),
+      url: config.url,
+      headers: {
+        ...config.headers,
+        Authorization: config.headers['Authorization'] ? 
+          config.headers['Authorization'].substring(0, 15) + '...' : 
+          'None'
+      },
+      data: config.data,
+      params: config.params
+    });
+
     return config;
   },
   (error) => {

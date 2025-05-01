@@ -1,3 +1,5 @@
+import mpesaService from '../services/mpesaService.js';
+
 class WalletController {
   constructor(pool) {
     this.pool = pool;
@@ -45,11 +47,11 @@ class WalletController {
     }
 
     try {
-      const mpesaService = await import('../services/mpesaService.js').then(m => m.default);
-      const token = req.mpesaToken;
-      const mpesaResponse = await mpesaService.initiateSTKPush(phoneNumber, amount, `WalletTopUp-${req.user.userId}`, token);
-
-      // Optionally, you can store the transaction initiation details here for tracking
+      const mpesaResponse = await mpesaService.initiateSTKPush(
+        phoneNumber, 
+        amount, 
+        `WalletTopUp-${req.user.userId}`
+      );
 
       res.json({
         message: 'STK Push initiated',

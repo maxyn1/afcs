@@ -2,18 +2,24 @@ import dotenv from 'dotenv';
 import path from 'path';
 import { fileURLToPath } from 'url';
 
-// For ES modules, you need to manually configure __dirname
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
-// Load environment variables
+// Load environment variables from root .env file
 dotenv.config({ path: path.resolve(__dirname, '../../../.env') });
+
+// Debug environment variables
+console.log('MPESA Config:', {
+  CallBackURL: process.env.MPESA_CALLBACK_URL,
+  shortCode: process.env.MPESA_BUSINESS_SHORT_CODE,
+  environment: process.env.MPESA_ENVIRONMENT
+});
 
 export const config = {
   db: {
     host: process.env.DB_HOST || 'localhost',
     user: process.env.DB_USER || 'root',
-    password: process.env.DB_PASSWORD || 'your_database_password',
+    password: process.env.DB_PASSWORD || '',
     database: process.env.DB_NAME || '',
   },
   app: {
@@ -28,7 +34,7 @@ export const config = {
     consumerSecret: process.env.MPESA_CONSUMER_SECRET || '',
     businessShortCode: process.env.MPESA_BUSINESS_SHORT_CODE || '',
     passkey: process.env.MPESA_PASSKEY || '',
-    callbackURL: process.env.MPESA_CALLBACK_URL || '',
+    CallBackURL: process.env.MPESA_CALLBACK_URL || 'https://your-domain.com/api/mpesa/callback',
   },
 };
 

@@ -34,6 +34,24 @@ import { useForm } from "react-hook-form";
 import * as z from "zod";
 import { Save, RefreshCw, Shield, CreditCard, Users, Mail } from "lucide-react";
 
+interface SaccoDetails {
+  id: number;
+  name: string;
+  registration_number: string;
+  contact_email: string;
+  contact_phone: string;
+  address: string;
+  founded_date: string;
+  status: string;
+  total_vehicles: number;
+}
+
+interface PaymentFormData {
+  mpesa_business_number: string;
+  payment_notification_email: string;
+  auto_reconcile: boolean;
+}
+
 const SaccoSettings = () => {
   const [isEditing, setIsEditing] = useState(false);
   const queryClient = useQueryClient();
@@ -83,25 +101,46 @@ const SaccoSettings = () => {
 
   // Payment Settings Form
   const formSchema = z.object({
-    mpesa_business_number: z.string().min(1, "Business number is required"),
+    mpesa_business_number: z.string().min(6, "Business number must be at least 6 digits"),
     payment_notification_email: z.string().email("Invalid email address"),
-    auto_reconcile: z.boolean(),
+    auto_reconcile: z.boolean().default(true),
   });
 
-  const form = useForm({
+  const form = useForm<PaymentFormData>({
     resolver: zodResolver(formSchema),
     defaultValues: {
-      mpesa_business_number: "123456",
-      payment_notification_email: saccoDetails.contact_email,
+      mpesa_business_number: "",
+      payment_notification_email: "",
       auto_reconcile: true,
     },
   });
 
-  const onSubmit = (data) => {
-    toast({
-      title: "Payment settings updated",
-      description: "Your payment settings have been updated successfully.",
-    });
+  const [isSubmitting, setIsSubmitting] = useState(false);
+
+  const updatePaymentSettings = useMutation({
+    mutationFn: (data: PaymentFormData) => saccoAdminService.updatePaymentSettings(data),
+    onSuccess: () => {
+      toast({
+        title: "Success",
+        description: "Payment settings updated successfully",
+      });
+      queryClient.invalidateQueries({ queryKey: ['saccoPaymentSettings'] });
+    },
+    onError: (error: Error) => {
+      toast({
+        title: "Error",
+        description: error.message || "Failed to update payment settings",
+        variant: "destructive",
+      });
+    },
+    onSettled: () => {
+      setIsSubmitting(false);
+    },
+  });
+
+  const onSubmit = async (data: PaymentFormData) => {
+    setIsSubmitting(true);
+    updatePaymentSettings.mutate(data);
   };
 
   return (
@@ -233,7 +272,7 @@ const SaccoSettings = () => {
                       <FormItem>
                         <FormLabel>M-Pesa Business Number</FormLabel>
                         <FormControl>
-                          <Input {...field} />
+                          <Input {...field} placeholder="Enter business number" />
                         </FormControl>
                         <FormDescription>
                           The business number customers will use to make payments
@@ -250,7 +289,7 @@ const SaccoSettings = () => {
                       <FormItem>
                         <FormLabel>Payment Notification Email</FormLabel>
                         <FormControl>
-                          <Input type="email" {...field} />
+                          <Input type="email" {...field} placeholder="email@example.com" />
                         </FormControl>
                         <FormDescription>
                           Email address to receive payment notifications
@@ -260,22 +299,29 @@ const SaccoSettings = () => {
                     )}
                   />
 
-                  <div className="flex items-center space-x-2">
-                    <input
-                      type="checkbox"
-                      id="auto_reconcile"
-                      checked={form.watch("auto_reconcile")}
-                      onChange={() => form.setValue("auto_reconcile", !form.watch("auto_reconcile"))}
-                      className="h-4 w-4 rounded border-gray-300"
-                    />
-                    <Label htmlFor="auto_reconcile">
-                      Automatically reconcile payments
-                    </Label>
-                  </div>
+                  <FormField
+                    control={form.control}
+                    name="auto_reconcile"
+                    render={({ field }) => (
+                      <FormItem className="flex flex-row items-center space-x-2 space-y-0">
+                        <FormControl>
+                          <input
+                            type="checkbox"
+                            checked={field.value}
+                            onChange={field.onChange}
+                            className="h-4 w-4 rounded border-gray-300"
+                          />
+                        </FormControl>
+                        <FormLabel className="font-normal">
+                          Automatically reconcile payments
+                        </FormLabel>
+                      </FormItem>
+                    )}
+                  />
 
-                  <Button type="submit" className="w-full">
+                  <Button type="submit" className="w-full" disabled={isSubmitting}>
                     <CreditCard className="mr-2 h-4 w-4" />
-                    Save Payment Settings
+                    {isSubmitting ? "Saving..." : "Save Payment Settings"}
                   </Button>
                 </form>
               </Form>

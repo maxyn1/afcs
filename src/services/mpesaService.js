@@ -1,5 +1,6 @@
 import axios from 'axios';
 import { config } from '../config/config.js';
+import QRCode from 'qrcode';
 
 class MpesaService {
   constructor() {
@@ -201,6 +202,68 @@ class MpesaService {
           AccountReference: accountReference
         }
       });
+      throw error;
+    }
+  }
+
+  async generateQRCode(amount) {
+    try {
+      const reference = this.generateTransactionReference();
+      const token = await this.getAuthToken();
+
+      // Generate M-Pesa QR code payload according to Daraja API specs
+      const payload = {
+        MerchantName: "Kenya AFCS",
+        RefNo: reference,
+        Amount: Math.round(amount),
+        TrxCode: "PB",
+        CPI: this.businessShortCode,
+        Size: "300"
+      };
+
+      // Call M-Pesa QR API
+      const response = await axios.post(
+        'https://sandbox.safaricom.co.ke/mpesa/qrcode/v1/generate',
+        payload,
+        {
+          headers: {
+            Authorization: `Bearer ${token}`,
+            'Content-Type': 'application/json'
+          }
+        }
+      );
+
+      // The QR code from Safaricom's API is already base64 encoded
+      return {
+        success: true,
+        qrCode: response.data.QRCode,
+        reference: reference
+      };
+    } catch (error) {
+      console.error('QR generation error:', error);
+      throw error;
+    }
+  }
+
+  async checkQRStatus(reference) {
+    try {
+      const token = await this.getAuthToken();
+      
+      const response = await axios.get(
+        `https://sandbox.safaricom.co.ke/mpesa/qrcode/v1/query/${reference}`,
+        {
+          headers: {
+            Authorization: `Bearer ${token}`
+          }
+        }
+      );
+
+      return {
+        status: response.data.ResultCode === "0" ? "completed" : "pending",
+        resultDesc: response.data.ResultDesc
+      };
+    } catch (error) {
+      console.error('QR status check error:', error);
       throw error;
     }
   }

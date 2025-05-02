@@ -96,4 +96,63 @@ router.post('/mpesa/manual', debugMiddleware, authMiddleware(), async (req, res)
   }
 });
 
+// QR code payment routes
+router.post('/qr-generate', debugMiddleware, authMiddleware(), mpesaAuthMiddleware, async (req, res) => {
+  try {
+    if (!mpesaController) {
+      return res.status(500).json({ 
+        success: false,
+        message: 'Service unavailable' 
+      });
+    }
+
+    const { amount } = req.body;
+    if (!amount || isNaN(amount) || amount <= 0) {
+      return res.status(400).json({
+        success: false,
+        message: 'Valid amount is required'
+      });
+    }
+
+    const qrResult = await mpesaController.generateQRCode(amount);
+    res.json(qrResult);
+  } catch (error) {
+    console.error('QR generation route error:', error);
+    res.status(500).json({ 
+      success: false,
+      message: 'Failed to generate QR code',
+      error: process.env.NODE_ENV === 'development' ? error.message : undefined
+    });
+  }
+});
+
+router.get('/qr-status/:reference', debugMiddleware, authMiddleware(), mpesaAuthMiddleware, async (req, res) => {
+  try {
+    if (!mpesaController) {
+      return res.status(500).json({ 
+        success: false,
+        message: 'Service unavailable' 
+      });
+    }
+
+    const { reference } = req.params;
+    if (!reference) {
+      return res.status(400).json({
+        success: false,
+        message: 'Reference is required'
+      });
+    }
+
+    const status = await mpesaController.checkQRStatus(reference);
+    res.json(status);
+  } catch (error) {
+    console.error('QR status check route error:', error);
+    res.status(500).json({ 
+      success: false,
+      message: 'Failed to check QR status',
+      error: process.env.NODE_ENV === 'development' ? error.message : undefined
+    });
+  }
+});
+
 export default router;

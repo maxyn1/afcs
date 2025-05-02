@@ -12,6 +12,7 @@ import { errorHandler } from './src/utils/errorHandler.js';
 import saccoAdminRoutes from './src/routes/saccoAdmin.js';
 import driverRoutes from './src/routes/driver.js';
 import mpesaRoutes from './src/routes/mpesa.js';
+import paymentsRoutes from './src/routes/payments.js';
 
 dotenv.config();
 
@@ -91,6 +92,7 @@ app.use('/api/admin', adminRoutes);
 app.use('/api/sacco-admin', saccoAdminRoutes);
 app.use('/api/driver', driverRoutes);
 app.use('/api/mpesa', mpesaRoutes);
+app.use('/api/payments', paymentsRoutes);
 
 // Add a catch-all route handler
 app.use((req, res) => {
@@ -123,15 +125,3 @@ const startServer = async () => {
 startServer();
 
 export default app;
-
-
-
-
-
-
-
-
-
-
-
-

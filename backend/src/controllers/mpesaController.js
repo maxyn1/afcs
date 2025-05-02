@@ -18,6 +18,42 @@ class MpesaController {
     }
   }
 
+  async generateQRCode(amount) {
+    try {
+      console.log('Generating QR code for amount:', amount);
+      const qrResult = await mpesaService.generateQRCode(amount);
+      console.log('QR code generated successfully:', {
+        success: qrResult.success,
+        hasQRCode: !!qrResult.qrCode,
+        reference: qrResult.reference
+      });
+      return qrResult;
+    } catch (error) {
+      console.error('Error in QR code generation:', {
+        error: error.message,
+        stack: error.stack,
+        amount
+      });
+      throw error;
+    }
+  }
+
+  async checkQRStatus(reference) {
+    try {
+      console.log('Checking QR status for reference:', reference);
+      const status = await mpesaService.checkQRStatus(reference);
+      console.log('QR status check result:', status);
+      return status;
+    } catch (error) {
+      console.error('Error checking QR status:', {
+        error: error.message,
+        stack: error.stack,
+        reference
+      });
+      throw error;
+    }
+  }
+
   async postManualTransaction(req, res) {
     try {
       console.log('Processing manual M-Pesa transaction:', JSON.stringify(req.body, null, 2));

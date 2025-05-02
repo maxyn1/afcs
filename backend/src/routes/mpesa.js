@@ -2,6 +2,7 @@ import express from 'express';
 import MpesaController from '../controllers/mpesaController.js';
 import { connectDB } from '../config/database.js';
 import { authMiddleware } from '../middleware/authMiddleware.js';
+import { mpesaAuthMiddleware } from '../middleware/mpesaAuthMiddleware.js';
 
 const router = express.Router();
 let mpesaController;
@@ -50,6 +51,66 @@ router.get('/callback', (req, res) => {
     timestamp: new Date().toISOString(),
     env: process.env.NODE_ENV
   });
+});
+
+// QR code generation route
+router.post('/generate-qr', authMiddleware(), mpesaAuthMiddleware, async (req, res) => {
+  try {
+    if (!mpesaController) {
+      return res.status(500).json({ 
+        success: false,
+        message: 'Service unavailable' 
+      });
+    }
+
+    const { amount } = req.body;
+    if (!amount || isNaN(amount) || amount <= 0) {
+      return res.status(400).json({
+        success: false,
+        message: 'Valid amount is required'
+      });
+    }
+
+    const qrResult = await mpesaController.generateQRCode(amount);
+    res.json(qrResult);
+  } catch (error) {
+    console.error('QR generation route error:', error);
+    res.status(500).json({ 
+      success: false,
+      message: 'Failed to generate QR code',
+      error: process.env.NODE_ENV === 'development' ? error.message : undefined
+    });
+  }
+});
+
+// QR code status checking route
+router.get('/qr-status/:reference', authMiddleware(), mpesaAuthMiddleware, async (req, res) => {
+  try {
+    if (!mpesaController) {
+      return res.status(500).json({ 
+        success: false,
+        message: 'Service unavailable' 
+      });
+    }
+
+    const { reference } = req.params;
+    if (!reference) {
+      return res.status(400).json({
+        success: false,
+        message: 'Reference is required'
+      });
+    }
+
+    const status = await mpesaController.checkQRStatus(reference);
+    res.json(status);
+  } catch (error) {
+    console.error('QR status check route error:', error);
+    res.status(500).json({ 
+      success: false,
+      message: 'Failed to check QR status',
+      error: process.env.NODE_ENV === 'development' ? error.message : undefined
+    });
+  }
 });
 
 // Manual testing callback route - requires authentication

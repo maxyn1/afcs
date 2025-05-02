@@ -4,6 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { toast } from "@/components/ui/use-toast";
+import { DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 
 interface MpesaPaymentProps {
   amount: number;
@@ -14,19 +15,26 @@ interface MpesaPaymentProps {
 const MpesaPayment = ({ amount, onSuccess, onCancel }: MpesaPaymentProps) => {
   const [phoneNumber, setPhoneNumber] = useState("");
   const [isLoading, setIsLoading] = useState(false);
+  const [phoneNumberValid, setPhoneNumberValid] = useState(false);
 
   const validatePhoneNumber = (phone: string) => {
     const regex = /^(254|0)?7\d{8}$/;
     return regex.test(phone);
   };
 
+  const handlePhoneNumberChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const value = e.target.value;
+    setPhoneNumber(value);
+    setPhoneNumberValid(validatePhoneNumber(value));
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!validatePhoneNumber(phoneNumber)) {
+    if (!phoneNumberValid) {
       toast({
         variant: "destructive",
         title: "Invalid Phone Number",
-        description: "Please enter a valid Kenyan phone number."
+        description: "Please enter a valid Kenyan phone number"
       });
       return;
     }
@@ -44,10 +52,6 @@ const MpesaPayment = ({ amount, onSuccess, onCancel }: MpesaPaymentProps) => {
       });
 
       if (response.data?.checkoutRequestId) {
-        toast({
-          title: "Payment Initiated",
-          description: "Please check your phone to complete the M-Pesa payment"
-        });
         onSuccess();
       }
     } catch (error) {
@@ -63,50 +67,46 @@ const MpesaPayment = ({ amount, onSuccess, onCancel }: MpesaPaymentProps) => {
   };
 
   return (
-    <div className="space-y-4">
-      <div className="text-center">
-        <h3 className="text-lg font-medium">M-Pesa Payment</h3>
-        <p className="text-sm text-muted-foreground">
-          You will receive an STK push on your phone
-        </p>
-      </div>
+    <>
+      <DialogHeader>
+        <DialogTitle>M-Pesa Payment</DialogTitle>
+      </DialogHeader>
+      
+      <form onSubmit={handleSubmit}>
+        <div className="grid gap-4 py-4">
+          <div className="space-y-2">
+            <Label htmlFor="phone">Phone Number</Label>
+            <Input
+              id="phone"
+              type="tel"
+              placeholder="e.g. 0712345678"
+              value={phoneNumber}
+              onChange={handlePhoneNumberChange}
+              required
+            />
+            <p className="text-sm text-muted-foreground">
+              Enter the M-Pesa number you want to use for payment
+            </p>
+          </div>
 
-      <form onSubmit={handleSubmit} className="space-y-4">
-        <div className="space-y-2">
-          <Label htmlFor="phone">Phone Number</Label>
-          <Input
-            id="phone"
-            type="tel"
-            placeholder="e.g. 0712345678"
-            value={phoneNumber}
-            onChange={(e) => setPhoneNumber(e.target.value)}
-            required
-          />
+          <div className="space-y-2">
+            <Label>Amount</Label>
+            <div className="w-full p-2 bg-muted rounded-md">
+              <p className="text-lg font-semibold">KSH {isNaN(amount) ? "0.00" : amount.toFixed(2)}</p>
+            </div>
+          </div>
         </div>
 
-        <div className="space-y-2">
-          <Label>Amount</Label>
-          <Input
-            type="text"
-            value={`KSH ${amount.toFixed(2)}`}
-            readOnly
-          />
-        </div>
-
-        <div className="flex justify-end gap-2">
-          <Button 
-            type="button" 
-            variant="outline" 
-            onClick={onCancel}
-          >
+        <DialogFooter>
+          <Button type="button" variant="outline" onClick={onCancel}>
             Cancel
           </Button>
-          <Button type="submit" disabled={isLoading}>
-            {isLoading ? "Processing..." : "Pay with M-Pesa"}
+          <Button type="submit" disabled={isLoading || isNaN(amount) || amount <= 0 || !phoneNumberValid}>
+            {isLoading ? "Processing..." : "Pay Now"}
           </Button>
-        </div>
+        </DialogFooter>
       </form>
-    </div>
+    </>
   );
 };
 

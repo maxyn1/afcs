@@ -51,6 +51,9 @@ const SaccoDrivers = () => {
     email: "",
     phone: "",
     license_number: "",
+    address: "",
+    date_of_birth: "",
+    emergency_contact: "",
   });
   
   const queryClient = useQueryClient();
@@ -74,6 +77,9 @@ const SaccoDrivers = () => {
         email: "",
         phone: "",
         license_number: "",
+        address: "",
+        date_of_birth: "",
+        emergency_contact: "",
       });
     },
     onError: (error) => {
@@ -87,7 +93,15 @@ const SaccoDrivers = () => {
 
   const handleNewDriverSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    createDriverMutation.mutate(newDriverData);
+    createDriverMutation.mutate({
+      fullName: newDriverData.name,
+      email: newDriverData.email,
+      phone: newDriverData.phone,
+      licenseNumber: newDriverData.license_number,
+      address: newDriverData.address,
+      dateOfBirth: newDriverData.date_of_birth,
+      emergencyContact: newDriverData.emergency_contact,
+    });
   };
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -169,6 +183,36 @@ const SaccoDrivers = () => {
                     value={newDriverData.phone}
                     onChange={handleInputChange}
                     required
+                  />
+                </div>
+                <div className="grid gap-2">
+                  <Label htmlFor="address">Address</Label>
+                  <Input
+                    id="address"
+                    name="address"
+                    placeholder="123 Main St"
+                    value={newDriverData.address}
+                    onChange={handleInputChange}
+                  />
+                </div>
+                <div className="grid gap-2">
+                  <Label htmlFor="date_of_birth">Date of Birth</Label>
+                  <Input
+                    id="date_of_birth"
+                    name="date_of_birth"
+                    type="date"
+                    value={newDriverData.date_of_birth}
+                    onChange={handleInputChange}
+                  />
+                </div>
+                <div className="grid gap-2">
+                  <Label htmlFor="emergency_contact">Emergency Contact</Label>
+                  <Input
+                    id="emergency_contact"
+                    name="emergency_contact"
+                    placeholder="John's Phone"
+                    value={newDriverData.emergency_contact}
+                    onChange={handleInputChange}
                   />
                 </div>
                 <div className="grid gap-2">

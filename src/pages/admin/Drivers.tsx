@@ -2,6 +2,7 @@ import { useState, useMemo } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import api from '@/services/api';
 import { 
   Table, 
   TableBody, 
@@ -27,6 +28,7 @@ import {
 interface Driver {
   id: number;
   name: string;
+  email: string;
   licenseNumber: string;
   licenseExpiry: string;
   saccoName: string;
@@ -35,7 +37,7 @@ interface Driver {
   status: 'active' | 'inactive' | 'suspended';
   phone: string;
   vehicle?: {
-    plateNumber: string;
+    registrationNumber: string;
     model: string;
     capacity: number;
     status: 'active' | 'maintenance' | 'inactive';
@@ -45,7 +47,7 @@ interface Driver {
 interface DriverDetails extends Driver {
   vehicle?: {
     id: number;
-    plateNumber: string;
+    registrationNumber: string;
     model: string;
     capacity: number;
     status: 'active' | 'inactive' | 'maintenance';
@@ -68,7 +70,7 @@ const DriverDetailsModal = ({ driverId, open, onClose }: {
   const { data: details, isLoading } = useQuery({
     queryKey: ['driver', driverId],
     queryFn: async () => {
-      const response = await axios.get(`${import.meta.env.VITE_API_BASE_URL}/admin/drivers/${driverId}`);
+      const response = await api.get(`/admin/drivers/${driverId}`);
       return response.data as DriverDetails;
     },
     enabled: open
@@ -96,6 +98,12 @@ const DriverDetailsModal = ({ driverId, open, onClose }: {
                 <p className="font-medium">{details.phone}</p>
               </div>
               <div>
+                <p className="text-sm text-muted-foreground">Email</p>
+                <p className="font-medium">{details.email}</p>
+              </div>
+              <div>
+                <p className="text-sm text-muted-foreground">SACCO</p>
+                <p className="font-medium">{details.saccoName}</p>
                 <p className="text-sm text-muted-foreground">License</p>
                 <p className="font-medium">{details.licenseNumber}</p>
                 <p className="text-sm text-muted-foreground">
@@ -111,7 +119,8 @@ const DriverDetailsModal = ({ driverId, open, onClose }: {
                 <>
                   <div>
                     <p className="text-sm text-muted-foreground">Plate Number</p>
-                    <p className="font-medium">{details.vehicle.plateNumber}</p>
+                    <p className="font-medium">{details.vehicle.registrationNumber
+                    }</p>
                   </div>
                   <div>
                     <p className="text-sm text-muted-foreground">Model</p>
@@ -120,6 +129,10 @@ const DriverDetailsModal = ({ driverId, open, onClose }: {
                   <div>
                     <p className="text-sm text-muted-foreground">Capacity</p>
                     <p className="font-medium">{details.vehicle.capacity} seats</p>
+                  </div>
+                  <div>
+                    <p className="text-sm text-muted-foreground">Total Trips</p>
+                    <p className="font-medium">{details.totalTrips}</p>
                   </div>
                   <div>
                     <p className="text-sm text-muted-foreground">Status</p>
@@ -173,10 +186,43 @@ const Drivers = () => {
     refetchOnWindowFocus: false
   });
 
+  // Fetch SACCOs for the select dropdown
+  const { data: saccoData } = useQuery({
+    queryKey: ['saccos'],
+    queryFn: async () => {
+      const response = await api.get('/saccos', {
+        baseURL: import.meta.env.VITE_API_BASE_URL,
+        headers: {
+          'Authorization': `Bearer ${localStorage.getItem('token')}`,
+          'Content-Type': 'application/json'
+        }
+      });
+      return response.data;
+    },
+    staleTime: 60000,
+    refetchOnWindowFocus: false
+  });
+
+  const saccos = saccoData || [];
+
   // Move mutations up with other hooks
   const createDriver = useMutation({
-    mutationFn: (newDriver: Driver) => 
-      axios.post('/admin/drivers', newDriver),
+    mutationFn: (newDriver: Driver) => {
+      // Map frontend Driver type to backend expected fields
+      const payload = {
+        fullName: newDriver.name,
+        email: newDriver.email,
+        phone: newDriver.phone,
+        licenseNumber: newDriver.licenseNumber,
+        licenseExpiry: newDriver.licenseExpiry,
+        saccoId: (newDriver as any).saccoId || null,
+        address: (newDriver as any).address || '',
+        dateOfBirth: (newDriver as any).dateOfBirth || '',
+        emergencyContact: (newDriver as any).emergencyContact || '',
+        status: newDriver.status || 'inactive',
+      };
+      return axios.post('/admin/drivers', payload);
+    },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['drivers'] });
       toast.success('Driver registered successfully');
@@ -446,18 +492,9 @@ const Drivers = () => {
       <RegisterDriverModal
         open={isRegisterModalOpen}
         onClose={() => setIsRegisterModalOpen(false)}
-        onSubmit={(data) => handleCreateDriver({
-          id: 0, // Placeholder ID, replace with actual logic if needed
-          name: data.fullName,
-          phone: data.phone,
-          licenseNumber: data.licenseNumber,
-          licenseExpiry: data.licenseExpiry,
-          saccoName: data.saccoId, // Map saccoId to saccoName or fetch the name if needed
-          rating: 0, // Default rating, replace with actual logic if needed
-          totalTrips: 0, // Default trips, replace with actual logic if needed
-          status: 'active', // Default status, replace with actual logic if needed
-        })}
-        saccos={[]} // TODO: Fetch SACCOs from API
+        onSubmit={handleCreateDriver}
+        saccos={saccos}
+        currentUserRole="system_admin"
       />
     </div>
   );

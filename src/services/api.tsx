@@ -33,7 +33,7 @@ api.interceptors.request.use(
       headers: {
         ...config.headers,
         Authorization: config.headers['Authorization'] ? 
-          config.headers['Authorization'].substring(0, 15) + '...' : 
+          (config.headers['Authorization'] as string).substring(0, 15) + '...' : 
           'None'
       },
       data: config.data,

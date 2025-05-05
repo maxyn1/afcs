@@ -86,9 +86,9 @@ const SaccoRoutes = () => {
   const routes = data || [];
 
   const filteredRoutes = routes.filter((route: Route) => 
-    route.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    route.start_point.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    route.end_point.toLowerCase().includes(searchQuery.toLowerCase())
+    (route.name?.toLowerCase() ?? '').includes(searchQuery.toLowerCase()) ||
+    (route.start_point?.toLowerCase() ?? '').includes(searchQuery.toLowerCase()) ||
+    (route.end_point?.toLowerCase() ?? '').includes(searchQuery.toLowerCase())
   );
 
   return (

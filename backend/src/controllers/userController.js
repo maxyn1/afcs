@@ -228,14 +228,21 @@ class UserController {
   }
 
   generateToken(user) {
+    const tokenPayload = {
+      userId: user.id,
+      id: user.id, // Include both for compatibility
+      email: user.email,
+      name: user.name,
+      role: user.role,
+      status: user.status,
+      phone: user.phone,
+      lastLogin: new Date()
+    };
+
+    console.log('Generating token with payload:', tokenPayload);
+
     return jwt.sign(
-      { 
-        userId: user.id, 
-        email: user.email,
-        role: user.role,
-        status: user.status,
-        lastLogin: new Date()
-      },
+      tokenPayload,
       config.jwtSecret || 'your-secret-key',
       { expiresIn: '24h' }
     );

@@ -99,10 +99,15 @@ const Dashboard = () => {
   };
 
   const handlePayment = async () => {
-    if (!selectedSacco || !selectedVehicle || !selectedRoute) return;
+    console.log('handlePayment called with:', { selectedSacco, selectedVehicle, selectedRoute });
+    if (!selectedSacco || !selectedVehicle || !selectedRoute) {
+      console.warn('Payment aborted: missing selection');
+      return;
+    }
     
     try {
       const selectedRouteFare = routes.find(r => r.route === selectedRoute)?.fare || 0;
+      console.log('Making payment with fare:', selectedRouteFare);
       await AuthService.makePayment({
         saccoId: selectedSacco,
         vehicleId: selectedVehicle,
@@ -113,6 +118,7 @@ const Dashboard = () => {
       // Refresh balance after payment
       const balanceRes = await AuthService.getWalletBalance();
       setBalance(balanceRes.data.balance);
+      console.log('Payment successful, updated balance:', balanceRes.data.balance);
     } catch (error) {
       console.error('Payment failed:', error);
     }
@@ -139,22 +145,24 @@ const Dashboard = () => {
           <Card>
             <CardHeader>
               <CardTitle className="text-lg flex items-center gap-2">
-                <Wallet size={20} />
-                Top Up Wallet
+                <Bus size={20} />
+                Select Route
               </CardTitle>
             </CardHeader>
-            <CardContent className="space-y-4">
+            <CardContent>
               <div className="space-y-2">
-                <Input
-                  type="number"
-                  placeholder="Enter amount (KSH)"
-                  className="text-lg"
-                  value={topUpAmount}
-                  onChange={(e) => setTopUpAmount(e.target.value)}
-                />
-                <Button className="w-full" onClick={() => handleTopUp(Number(topUpAmount))} disabled={!topUpAmount || Number(topUpAmount) <= 0}>
-                  Top Up via M-PESA
-                </Button>
+                <Select onValueChange={setSelectedRoute} value={selectedRoute}>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Select Route" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {routes.map((route) => (
+                      <SelectItem key={route.route} value={route.route}>
+                        {route.route}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
               </div>
             </CardContent>
           </Card>
@@ -235,7 +243,7 @@ const Dashboard = () => {
                     <p className="font-semibold">KSH {item.fare}</p>
                     <Button
                       size="sm"
-                      disabled={!selectedSacco || !selectedVehicle}
+                      disabled={!selectedSacco || !selectedVehicle || !selectedRoute}
                       onClick={(e) => {
                         e.stopPropagation();
                         handlePayment();

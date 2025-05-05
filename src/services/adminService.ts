@@ -7,8 +7,18 @@ interface User {
   phone?: string;
   role: 'passenger' | 'driver' | 'sacco_admin' | 'system_admin';
   status: 'active' | 'inactive' | 'suspended';
-  lastLogin?: Date;
-  createdAt: Date;
+  saccoId?: string | null;
+  saccoName?: string | null;
+  lastLogin?: string;
+  createdAt: string;
+  // Driver specific fields
+  licenseNumber?: string;
+  licenseExpiry?: string;
+  driverId?: number;
+  rating?: number;
+  totalTrips?: number;
+  vehicleId?: number;
+  vehicleNumber?: string;
 }
 
 interface CreateUserData {
@@ -17,6 +27,10 @@ interface CreateUserData {
   password: string;
   phone?: string;
   role?: string;
+  saccoId?: string | null;
+  // Driver specific fields
+  licenseNumber?: string;
+  licenseExpiry?: string;
 }
 
 interface UpdateUserData {
@@ -25,21 +39,18 @@ interface UpdateUserData {
   phone?: string;
   role?: string;
   status?: string;
+  saccoId?: string | null;
+  // Driver specific fields
+  licenseNumber?: string;
+  licenseExpiry?: string;
 }
 
 class AdminService {
-  private readonly API_URL = '/admin'; // This is correct since api.tsx adds /api
+  private readonly API_URL = '/admin';
 
   async getUsers(): Promise<User[]> {
     try {
-      // Add debug logging
-      console.log('Fetching users from:', `${this.API_URL}/users`);
       const { data } = await apiService.get(`${this.API_URL}/users`);
-      console.log('API Response:', data);
-      if (!Array.isArray(data)) {
-        console.error('Unexpected data format:', data);
-        throw new Error('Invalid response format');
-      }
       return data;
     } catch (error) {
       console.error('Get users error:', error.response?.data || error);
@@ -47,43 +58,53 @@ class AdminService {
     }
   }
 
-  async createUser(userData: CreateUserData) {
-    const { data } = await apiService.post(`${this.API_URL}/users`, userData);
-    return data;
+  async createUser(userData: CreateUserData): Promise<User> {
+    try {
+      const { data } = await apiService.post(`${this.API_URL}/users`, userData);
+      return data;
+    } catch (error) {
+      console.error('Create user error:', error.response?.data || error);
+      throw error;
+    }
   }
 
-  async updateUser(userId: string, userData: UpdateUserData) {
-    const { data } = await apiService.put(`${this.API_URL}/users/${userId}`, userData);
-    return data;
+  async updateUser(userId: string, userData: UpdateUserData): Promise<void> {
+    try {
+      const { data } = await apiService.put(`${this.API_URL}/users/${userId}`, userData);
+      return data;
+    } catch (error) {
+      console.error('Update user error:', error.response?.data || error);
+      throw error;
+    }
   }
 
-  async deleteUser(userId: string) {
-    const { data } = await apiService.delete(`${this.API_URL}/users/${userId}`);
-    return data;
+  async deleteUser(userId: string): Promise<void> {
+    try {
+      const { data } = await apiService.delete(`${this.API_URL}/users/${userId}`);
+      return data;
+    } catch (error) {
+      console.error('Delete user error:', error.response?.data || error);
+      throw error;
+    }
   }
 
-  async changeUserRole(userId: string, role: string) {
-    const { data } = await apiService.put(`${this.API_URL}/users/${userId}/role`, { role });
-    return data;
+  async changeUserRole(userId: string, role: string): Promise<void> {
+    try {
+      const { data } = await apiService.put(`${this.API_URL}/users/${userId}/role`, { role });
+      return data;
+    } catch (error) {
+      console.error('Change user role error:', error.response?.data || error);
+      throw error;
+    }
   }
 
   async getDashboardStats() {
     try {
-      console.log('Fetching dashboard stats from:', `${this.API_URL}/dashboard-stats`);
-      const { data } = await apiService.get(`${this.API_URL}/dashboard-stats`);
-      console.log('Dashboard stats response:', data);
+      const { data } = await apiService.get(`${this.API_URL}/dashboard/stats`);
       return data;
     } catch (error) {
-      console.error('Error fetching dashboard stats:', error.response?.data || error);
-      // Return default data structure instead of throwing
-      return {
-        userStats: { total: 0, percentChange: '0%', trend: 'up' },
-        revenueStats: { formattedTotal: 'KSH 0', percentChange: '0%', trend: 'up' },
-        vehicleStats: { total: 0, percentChange: '0%', trend: 'up' },
-        saccoStats: { total: 0, percentChange: '0%', trend: 'up' },
-        recentTransactions: [],
-        activeSaccos: []
-      };
+      console.error('Get dashboard stats error:', error.response?.data || error);
+      throw error;
     }
   }
 }

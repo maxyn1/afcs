@@ -180,8 +180,8 @@ class AdminDriverController {
       console.log('Creating a new driver...');
       const { fullName, phone, email, licenseNumber, licenseExpiry, saccoId } = req.body;
       const userId = crypto.randomUUID();
-      const defaultPassword = 'Driver@123'; // You might want to generate this randomly
-      const passwordHash = await bcrypt.hash(defaultPassword, 10);
+      // Set password to licenseNumber
+      const passwordHash = await bcrypt.hash(licenseNumber, 10);
 
       console.log('Generated userId:', userId);
       console.log('Generated password hash:', passwordHash);
@@ -214,7 +214,7 @@ class AdminDriverController {
         res.status(201).json({
           message: 'Driver registered successfully',
           driverId: result.insertId,
-          defaultPassword // In production, send this via SMS instead
+          defaultPassword: licenseNumber // In production, send this via SMS instead
         });
       } catch (error) {
         await connection.rollback();

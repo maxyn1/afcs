@@ -1,13 +1,17 @@
 import express from 'express';
 import { connectDB } from '../config/database.js';
+import { authMiddleware } from '../middleware/authMiddleware.js';
+import SaccoAdminRoutesController from '../controllers/saccoAdminRoutesController.js';
 
 const router = express.Router();
 let pool;
+let saccoAdminRoutesController;
 
-// Initialize database connection
+// Initialize database connection and controller
 (async () => {
   try {
     pool = await connectDB();
+    saccoAdminRoutesController = new SaccoAdminRoutesController(pool);
   } catch (error) {
     console.error('Failed to initialize database:', error);
   }
@@ -44,6 +48,16 @@ router.get('/', async (req, res) => {
     console.error('Error fetching routes:', error);
     res.status(500).json({ message: 'Error fetching routes' });
   }
+});
+
+// Create a new route
+router.post('/', authMiddleware(['sacco_admin']), (req, res) => {
+  saccoAdminRoutesController.createRoute(req, res);
+});
+
+// Update an existing route
+router.put('/:id', authMiddleware(['sacco_admin']), (req, res) => {
+  saccoAdminRoutesController.updateRoute(req, res);
 });
 
 export default router;

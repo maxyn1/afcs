@@ -7,6 +7,8 @@ interface User {
   name: string;
   email: string;
   role: 'passenger' | 'driver' | 'sacco_admin' | 'system_admin';
+  sacco_id?: string;
+  status: string;
 }
 
 interface AuthContextType {
@@ -23,7 +25,7 @@ interface AuthContextType {
 const AuthContext = createContext<AuthContextType>({
   user: null,
   login: async () => {
-    return { id: '', name: '', email: '', role: 'passenger' };
+    return { id: '', name: '', email: '', role: 'passenger', status: '' };
   },
   logout: () => {},
   isAuthenticated: false,

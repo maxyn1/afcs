@@ -1,5 +1,6 @@
 import api from './api';
 import type { Driver } from './driverService';
+import type { Vehicle } from './vehicleService';
 
 export interface SaccoStats {
   totalDrivers: number;
@@ -23,7 +24,7 @@ export interface Route {
 }
 
 class SaccoAdminService {
-  async getDashboardStats() {
+  async getDashboardStats(): Promise<SaccoStats> {
     try {
       const response = await api.get('/sacco-admin/dashboard-stats');
       return response.data;
@@ -33,60 +34,76 @@ class SaccoAdminService {
     }
   }
 
-  async getDrivers() {
+  async getDrivers(): Promise<Driver[]> {
     const response = await api.get('/sacco-admin/drivers');
     return response.data;
   }
 
-  async getVehicles() {
+  async getVehicles(): Promise<Vehicle[]> {
     const response = await api.get('/sacco-admin/vehicles');
     return response.data;
   }
 
-  async getRoutes() {
+  async getRoutes(): Promise<Route[]> {
     const response = await api.get('/sacco-admin/routes');
     return response.data;
   }
 
-  async getPayments(startDate?: string, endDate?: string) {
+  async getPayments(startDate?: string, endDate?: string): Promise<any> {
     const params = startDate && endDate ? { startDate, endDate } : {};
     const response = await api.get('/sacco-admin/payments', { params });
     return response.data;
   }
 
-  async createDriver(driverData: Partial<Driver>) {
+  async createDriver(driverData: Partial<Driver>): Promise<Driver> {
     const response = await api.post('/sacco-admin/drivers', driverData);
     return response.data;
   }
 
-  async updateDriver(id: string, driverData: Partial<Driver>) {
+  async updateDriver(id: string, driverData: Partial<Driver>): Promise<Driver> {
     const response = await api.put(`/sacco-admin/drivers/${id}`, driverData);
     return response.data;
   }
 
-  async deleteDriver(id: string) {
+  async deleteDriver(id: string): Promise<void> {
     const response = await api.delete(`/sacco-admin/drivers/${id}`);
     return response.data;
   }
 
-  async assignVehicle(driverId: string, vehicleId: number) {
+  async assignVehicle(driverId: string, vehicleId: number): Promise<void> {
     const response = await api.put(`/sacco-admin/drivers/${driverId}/assign-vehicle`, {
       vehicleId
     });
     return response.data;
   }
 
-  async createRoute(routeData: Partial<Route>) {
-    const response = await api.post('/sacco-admin/routes', routeData);
+  async createRoute(routeData: Partial<Route>): Promise<Route> {
+    // Map frontend routeData fields to backend expected fields
+    const payload = {
+      start_location: routeData.start_point,
+      end_location: routeData.end_point,
+      distance_km: routeData.distance,
+      base_fare: routeData.fare,
+      status: routeData.status || 'active',
+    };
+    const response = await api.post('/sacco-admin/routes', payload);
     return response.data;
   }
 
-  async updateRoute(id: number, routeData: Partial<Route>) {
-    const response = await api.put(`/sacco-admin/routes/${id}`, routeData);
+  async updateRoute(id: number, routeData: Partial<Route>): Promise<Route> {
+    // Map frontend routeData fields to backend expected fields
+    const payload = {
+      start_location: routeData.start_point,
+      end_location: routeData.end_point,
+      distance_km: routeData.distance,
+      base_fare: routeData.fare,
+      status: routeData.status || 'active',
+    };
+    const response = await api.put(`/sacco-admin/routes/${id}`, payload);
     return response.data;
   }
 
-  async generateReport(type: 'daily' | 'weekly' | 'monthly', date?: string) {
+  async generateReport(type: 'daily' | 'weekly' | 'monthly', date?: string): Promise<any> {
     const response = await api.get('/sacco-admin/reports', {
       params: { type, date }
     });
@@ -96,4 +113,4 @@ class SaccoAdminService {
 
 const saccoAdminService = new SaccoAdminService();
 export default saccoAdminService;
-export { saccoAdminService }; // Add named export
+export { saccoAdminService };

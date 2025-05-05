@@ -44,11 +44,11 @@ class PaymentController {
           throw new AppError('Failed to update user balance', 500);
         }
 
-        // Insert payment transaction record
+        // Insert payment transaction record with corrected transaction_type
         await connection.query(
           `INSERT INTO wallet_transactions 
             (user_id, amount, transaction_type, description, transaction_time, payment_method, status, reference) 
-           VALUES (?, ?, 'debit', 'Payment for route', NOW(), 'balance', 'completed', ?)`,
+           VALUES (?, ?, 'payment', 'Payment for route', NOW(), 'balance', 'completed', ?)`,
           [userId, amount, `Payment-${Date.now()}`]
         );
 

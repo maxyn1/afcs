@@ -22,6 +22,10 @@ class AdminUserController {
           u.last_login as lastLogin,
           s.id as saccoId,
           s.name as saccoName,
+          s.registration_number as saccoRegistrationNumber,
+          s.contact_email as saccoEmail,
+          s.contact_phone as saccoPhone,
+          s.status as saccoStatus,
           d.id as driverId,
           d.license_number as licenseNumber,
           d.license_expiry as licenseExpiry,
@@ -33,8 +37,8 @@ class AdminUserController {
           v.status as vehicleStatus
          FROM users u
          LEFT JOIN saccos s ON s.managed_by = u.id
-         LEFT JOIN drivers d ON u.id = d.user_id
-         LEFT JOIN vehicles v ON d.vehicle_id = v.id
+         LEFT JOIN drivers d ON u.id = d.user_id 
+         LEFT JOIN vehicles v ON v.id = d.id
          ORDER BY u.created_at DESC`
       );
 
@@ -51,15 +55,19 @@ class AdminUserController {
         // Include SACCO details if user is a sacco_admin
         ...(user.role === 'sacco_admin' ? {
           saccoId: user.saccoId,
-          saccoName: user.saccoName
+          saccoName: user.saccoName,
+          saccoRegistrationNumber: user.saccoRegistrationNumber,
+          saccoEmail: user.saccoEmail,
+          saccoPhone: user.saccoPhone,
+          saccoStatus: user.saccoStatus
         } : {}),
         // Include driver details if user is a driver
         ...(user.role === 'driver' ? {
           driverId: user.driverId,
           licenseNumber: user.licenseNumber,
-          licenseExpiry: user.licenseExpiry,
+          licenseExpiry: user.licenseExpiry ? new Date(user.licenseExpiry).toISOString() : null,
           driverRating: parseFloat(user.driverRating || 0),
-          totalTrips: user.totalTrips,
+          totalTrips: parseInt(user.totalTrips || 0, 10),
           driverStatus: user.driverStatus,
           vehicleId: user.vehicleId,
           vehicleNumber: user.vehicleNumber,

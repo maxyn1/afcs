@@ -152,22 +152,54 @@ export class DatabaseSetup {
 
   // Drivers Table
   async createDriversTable() {
-    const createQuery = `
-      CREATE TABLE IF NOT EXISTS drivers (
-        id INT AUTO_INCREMENT PRIMARY KEY,
-        user_id VARCHAR(36),
-        sacco_id INT,
-        license_number VARCHAR(50) UNIQUE NOT NULL,
-        license_expiry DATE,
-        driver_rating DECIMAL(3, 2) DEFAULT 0.00,
-        total_trips INT DEFAULT 0,
-        vehicle_id INT,
-        FOREIGN KEY (user_id) REFERENCES users(id),
-        FOREIGN KEY (sacco_id) REFERENCES saccos(id),
-        FOREIGN KEY (vehicle_id) REFERENCES vehicles(id)
-      )
-    `;
-    await this.createTable('drivers', createQuery);
+    // First check if table exists
+    const [existingTable] = await this.pool.query(`SHOW TABLES LIKE 'drivers'`);
+    
+    if (existingTable.length === 0) {
+      // Table doesn't exist, create it with all columns
+      const createQuery = `
+        CREATE TABLE IF NOT EXISTS drivers (
+          id INT AUTO_INCREMENT PRIMARY KEY,
+          user_id VARCHAR(36),
+          sacco_id INT,
+          vehicle_id INT,
+          license_number VARCHAR(50) UNIQUE NOT NULL,
+          license_expiry DATE,
+          driver_rating DECIMAL(3, 2) DEFAULT 0.00,
+          total_trips INT DEFAULT 0,
+          status ENUM('active', 'inactive', 'suspended') DEFAULT 'inactive',
+          FOREIGN KEY (user_id) REFERENCES users(id),
+          FOREIGN KEY (sacco_id) REFERENCES saccos(id),
+          FOREIGN KEY (vehicle_id) REFERENCES vehicles(id)
+        )
+      `;
+      await this.createTable('drivers', createQuery);
+    } else {
+      // Table exists, check for vehicle_id column
+      const [vehicleIdColumn] = await this.pool.query(`
+        SELECT COLUMN_NAME 
+        FROM INFORMATION_SCHEMA.COLUMNS 
+        WHERE TABLE_SCHEMA = DATABASE()
+        AND TABLE_NAME = 'drivers' 
+        AND COLUMN_NAME = 'vehicle_id'
+      `);
+
+      // Add vehicle_id column if it doesn't exist
+      if (vehicleIdColumn.length === 0) {
+        try {
+          await this.pool.query(`
+            ALTER TABLE drivers 
+            ADD COLUMN vehicle_id INT,
+            ADD FOREIGN KEY (vehicle_id) REFERENCES vehicles(id)
+          `);
+          console.log('Added vehicle_id column to drivers table');
+        } catch (error) {
+          if (error.code !== 'ER_DUP_FIELDNAME') {
+            throw error;
+          }
+        }
+      }
+    }
 
     // Check and modify drivers status column if needed
     const [statusColumnInfo] = await this.pool.query(`
@@ -200,11 +232,6 @@ export class DatabaseSetup {
     }
   }
 
-  // To update the table manually use the following query:
-  // ALTER TABLE drivers
-  // ADD COLUMN vehicle_id INT,
-  // ADD FOREIGN KEY (vehicle_id) REFERENCES vehicles(id);
-
   // Routes Table
   async createRoutesTable() {
     const createQuery = `
@@ -219,6 +246,23 @@ export class DatabaseSetup {
       )
     `;
     await this.createTable('routes', createQuery);
+
+    try {
+      const [columns] = await this.pool.query(`SHOW COLUMNS FROM routes LIKE 'status'`);
+      if (columns.length === 0) {
+        await this.pool.query(`
+          ALTER TABLE routes 
+          ADD COLUMN status ENUM('active', 'inactive') DEFAULT 'active'
+        `);
+        console.log('Added status column to routes table');
+      }
+    } catch (error) {
+      if (error.code !== 'ER_DUP_FIELDNAME') {
+        throw error;
+      } else {
+        console.log('Status column already exists in routes table');
+      }
+    }
   }
 
   // Trips Table
@@ -277,6 +321,9 @@ export class DatabaseSetup {
     await this.createTable('wallet_transactions', createQuery);
   }
 
+
+
+  
   // Maintenance Logs Table
   async createMaintenanceLogsTable() {
     const createQuery = `

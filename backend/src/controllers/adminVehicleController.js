@@ -30,12 +30,13 @@ class AdminVehicleController {
 
   async createVehicle(req, res) {
     try {
-      const { registration_number, sacco_id, capacity, status } = req.body;
+      const saccoId = req.user.sacco_id || req.user.saccoId;
+      const { registration_number, capacity, status } = req.body;
       const [result] = await this.pool.query(
         'INSERT INTO vehicles (registration_number, sacco_id, capacity, status) VALUES (?, ?, ?, ?)',
-        [registration_number, sacco_id, capacity, status]
+        [registration_number, saccoId, capacity, status]
       );
-      res.status(201).json({ id: result.insertId, ...req.body });
+      res.status(201).json({ id: result.insertId, registration_number, sacco_id: saccoId, capacity, status });
     } catch (error) {
       console.error('Error creating vehicle:', error);
       res.status(500).json({ message: 'Error creating vehicle' });

@@ -115,7 +115,21 @@ export class DatabaseSetup {
       )
     `;
     await this.createTable('saccos', createQuery);
-  }
+
+   
+    // Check if managed_by column exists using SHOW COLUMNS instead of SELECT
+    const [columns] = await this.pool.query(`SHOW COLUMNS FROM saccos LIKE 'managed_by'`);
+
+    // Add managed_by column if it doesn't exist
+    if (columns.length === 0) {
+      await this.pool.query(`
+      ALTER TABLE saccos 
+      ADD COLUMN managed_by VARCHAR(36),
+      ADD FOREIGN KEY (managed_by) REFERENCES users(id)
+      `);
+      console.log('Added managed_by column to saccos table');
+    }
+    }
 
   // Vehicles Table
   async createVehiclesTable() {
@@ -147,8 +161,10 @@ export class DatabaseSetup {
         license_expiry DATE,
         driver_rating DECIMAL(3, 2) DEFAULT 0.00,
         total_trips INT DEFAULT 0,
+        vehicle_id INT,
         FOREIGN KEY (user_id) REFERENCES users(id),
-        FOREIGN KEY (sacco_id) REFERENCES saccos(id)
+        FOREIGN KEY (sacco_id) REFERENCES saccos(id),
+        FOREIGN KEY (vehicle_id) REFERENCES vehicles(id)
       )
     `;
     await this.createTable('drivers', createQuery);
@@ -178,11 +194,16 @@ export class DatabaseSetup {
         ALTER TABLE drivers 
         ADD COLUMN status ENUM('active', 'inactive', 'suspended') 
         DEFAULT 'inactive' 
-        AFTER sacco_id
+        AFTER vehicle_id
       `);
       console.log('Added status column to drivers table');
     }
   }
+
+  // To update the table manually use the following query:
+  // ALTER TABLE drivers
+  // ADD COLUMN vehicle_id INT,
+  // ADD FOREIGN KEY (vehicle_id) REFERENCES vehicles(id);
 
   // Routes Table
   async createRoutesTable() {

@@ -64,6 +64,11 @@ class SaccoAdminService {
     return response.data;
   }
 
+  async deleteDriver(id: string) {
+    const response = await api.delete(`/sacco-admin/drivers/${id}`);
+    return response.data;
+  }
+
   async assignVehicle(driverId: string, vehicleId: number) {
     const response = await api.put(`/sacco-admin/drivers/${driverId}/assign-vehicle`, {
       vehicleId

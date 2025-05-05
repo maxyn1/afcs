@@ -1,7 +1,8 @@
-
 import { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import saccoAdminService, { Driver } from "@/services/saccoAdminService";
+import saccoAdminService from "@/services/saccoAdminService";
+import type { Driver } from "@/services/driverService";
+import { RegisterDriverModal } from "@/components/drivers/RegisterDriverModal";
 import {
   Card,
   CardContent,
@@ -9,9 +10,6 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Badge } from "@/components/ui/badge";
 import {
   Table,
   TableBody,
@@ -20,16 +18,9 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-  DialogTrigger,
-} from "@/components/ui/dialog";
-import { Label } from "@/components/ui/label";
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 import {
   Pagination,
   PaginationContent,
@@ -38,87 +29,100 @@ import {
   PaginationNext,
   PaginationPrevious,
 } from "@/components/ui/pagination";
-import { Plus, Search, X, UserPlus } from "lucide-react";
-import { toast } from "@/hooks/use-toast";
+import { toast } from "@/components/ui/use-toast";
+import { Search, Calendar } from "lucide-react";
+
+type BadgeVariant = "default" | "secondary" | "destructive" | "outline";
 
 const SaccoDrivers = () => {
   const [searchQuery, setSearchQuery] = useState("");
   const [page, setPage] = useState(1);
   const [limit] = useState(10);
   const [isNewDriverOpen, setIsNewDriverOpen] = useState(false);
-  const [newDriverData, setNewDriverData] = useState({
-    name: "",
-    email: "",
-    phone: "",
-    license_number: "",
-    address: "",
-    date_of_birth: "",
-    emergency_contact: "",
-  });
-  
+  const [editingDriver, setEditingDriver] = useState<Driver | null>(null);
   const queryClient = useQueryClient();
 
   const { data, isLoading } = useQuery({
-    queryKey: ['saccoDrivers', page, limit],
+    queryKey: ["saccoDrivers", page, limit],
     queryFn: () => saccoAdminService.getDrivers(),
   });
 
   const createDriverMutation = useMutation({
-    mutationFn: (driverData: any) => saccoAdminService.createDriver(driverData),
+    mutationFn: (driverData: Partial<Driver>) => saccoAdminService.createDriver(driverData),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['saccoDrivers'] });
+      queryClient.invalidateQueries({ queryKey: ["saccoDrivers"] });
       toast({
         title: "Driver created",
         description: "The driver has been registered successfully.",
       });
       setIsNewDriverOpen(false);
-      setNewDriverData({
-        name: "",
-        email: "",
-        phone: "",
-        license_number: "",
-        address: "",
-        date_of_birth: "",
-        emergency_contact: "",
-      });
     },
-    onError: (error) => {
+    onError: (error: Error) => {
       toast({
         title: "Registration failed",
-        description: error.message || "Failed to register driver. Please try again.",
+        description:
+          error.message || "Failed to register driver. Please try again.",
         variant: "destructive",
       });
     },
   });
 
-  const handleNewDriverSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
-    createDriverMutation.mutate({
-      fullName: newDriverData.name,
-      email: newDriverData.email,
-      phone: newDriverData.phone,
-      licenseNumber: newDriverData.license_number,
-      address: newDriverData.address,
-      dateOfBirth: newDriverData.date_of_birth,
-      emergencyContact: newDriverData.emergency_contact,
-    });
-  };
+  const updateDriverMutation = useMutation({
+    mutationFn: ({ id, data }: { id: string; data: Partial<Driver> }) =>
+      saccoAdminService.updateDriver(id, data),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["saccoDrivers"] });
+      toast({
+        title: "Driver updated",
+        description: "The driver has been updated successfully.",
+      });
+      setEditingDriver(null);
+    },
+    onError: (error) => {
+      toast({
+        title: "Update failed",
+        description:
+          error.message || "Failed to update driver. Please try again.",
+        variant: "destructive",
+      });
+    },
+  });
 
-  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const { name, value } = e.target;
-    setNewDriverData((prev) => ({ ...prev, [name]: value }));
-  };
+  const deleteDriverMutation = useMutation({
+    mutationFn: (id) => saccoAdminService.deleteDriver(id),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["saccoDrivers"] });
+      toast({
+        title: "Driver deleted",
+        description: "The driver has been deleted successfully.",
+      });
+    },
+    onError: (error) => {
+      toast({
+        title: "Delete failed",
+        description:
+          error.message || "Failed to delete driver. Please try again.",
+        variant: "destructive",
+      });
+    },
+  });
 
-  const drivers = data?.drivers || [];
-  const totalPages = Math.ceil((data?.total || 0) / limit);
+  const drivers = data || [];
+  const totalPages = Math.ceil((drivers.length || 0) / limit);
 
-  const filteredDrivers = drivers.filter((driver: Driver) => 
-    driver.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    driver.email.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    driver.phone.includes(searchQuery)
+  const filteredDrivers = drivers.filter((driver) =>
+    driver.name?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+    driver.email?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+    driver.phone?.includes(searchQuery) ||
+    driver.licenseNumber?.includes(searchQuery)
   );
 
-  const getStatusBadgeVariant = (status: string): "default" | "secondary" | "outline" | "destructive" => {
+  // Pagination logic
+  const paginatedDrivers = filteredDrivers.slice((page - 1) * limit, page * limit);
+
+  const getStatusBadgeVariant = (
+    status: string
+  ): BadgeVariant => {
     switch (status) {
       case "active":
         return "default";
@@ -131,117 +135,48 @@ const SaccoDrivers = () => {
     }
   };
 
+  const formatDate = (dateString) => {
+    if (!dateString) return "N/A";
+    return new Date(dateString).toLocaleDateString();
+  };
+
+  const handleEditClick = (driver) => {
+    setEditingDriver(driver);
+  };
+
+  const handleDeleteClick = (driverId) => {
+    if (
+      window.confirm(
+        "Are you sure you want to delete this driver? This action cannot be undone."
+      )
+    ) {
+      deleteDriverMutation.mutate(driverId);
+    }
+  };
+
+  const handleUpdateSubmit = async (driverData: Partial<Driver>) => {
+    if (!editingDriver?.id) return;
+    await updateDriverMutation.mutateAsync({ 
+      id: editingDriver.id, 
+      data: driverData 
+    });
+  };
+
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
+      <div className="flex items-center justify-between space-x-4">
         <h1 className="text-3xl font-bold">Drivers Management</h1>
-        <Dialog open={isNewDriverOpen} onOpenChange={setIsNewDriverOpen}>
-          <DialogTrigger asChild>
-            <Button>
-              <UserPlus className="mr-2 h-4 w-4" />
-              Register New Driver
-            </Button>
-          </DialogTrigger>
-          <DialogContent>
-            <DialogHeader>
-              <DialogTitle>Register New Driver</DialogTitle>
-              <DialogDescription>
-                Fill out the form below to register a new driver to your SACCO.
-              </DialogDescription>
-            </DialogHeader>
-            <form onSubmit={handleNewDriverSubmit}>
-              <div className="grid gap-4 py-4">
-                <div className="grid gap-2">
-                  <Label htmlFor="name">Full Name</Label>
-                  <Input
-                    id="name"
-                    name="name"
-                    placeholder="John Doe"
-                    value={newDriverData.name}
-                    onChange={handleInputChange}
-                    required
-                  />
-                </div>
-                <div className="grid gap-2">
-                  <Label htmlFor="email">Email</Label>
-                  <Input
-                    id="email"
-                    name="email"
-                    type="email"
-                    placeholder="johndoe@example.com"
-                    value={newDriverData.email}
-                    onChange={handleInputChange}
-                    required
-                  />
-                </div>
-                <div className="grid gap-2">
-                  <Label htmlFor="phone">Phone Number</Label>
-                  <Input
-                    id="phone"
-                    name="phone"
-                    placeholder="+254 712 345 678"
-                    value={newDriverData.phone}
-                    onChange={handleInputChange}
-                    required
-                  />
-                </div>
-                <div className="grid gap-2">
-                  <Label htmlFor="address">Address</Label>
-                  <Input
-                    id="address"
-                    name="address"
-                    placeholder="123 Main St"
-                    value={newDriverData.address}
-                    onChange={handleInputChange}
-                  />
-                </div>
-                <div className="grid gap-2">
-                  <Label htmlFor="date_of_birth">Date of Birth</Label>
-                  <Input
-                    id="date_of_birth"
-                    name="date_of_birth"
-                    type="date"
-                    value={newDriverData.date_of_birth}
-                    onChange={handleInputChange}
-                  />
-                </div>
-                <div className="grid gap-2">
-                  <Label htmlFor="emergency_contact">Emergency Contact</Label>
-                  <Input
-                    id="emergency_contact"
-                    name="emergency_contact"
-                    placeholder="John's Phone"
-                    value={newDriverData.emergency_contact}
-                    onChange={handleInputChange}
-                  />
-                </div>
-                <div className="grid gap-2">
-                  <Label htmlFor="license_number">License Number</Label>
-                  <Input
-                    id="license_number"
-                    name="license_number"
-                    placeholder="DL12345678"
-                    value={newDriverData.license_number}
-                    onChange={handleInputChange}
-                    required
-                  />
-                </div>
-              </div>
-              <DialogFooter>
-                <Button
-                  type="button"
-                  variant="outline"
-                  onClick={() => setIsNewDriverOpen(false)}
-                >
-                  Cancel
-                </Button>
-                <Button type="submit" disabled={createDriverMutation.isPending}>
-                  {createDriverMutation.isPending ? "Creating..." : "Register Driver"}
-                </Button>
-              </DialogFooter>
-            </form>
-          </DialogContent>
-        </Dialog>
+        <Button onClick={() => setIsNewDriverOpen(true)}>New Driver</Button>
+        <RegisterDriverModal
+          open={isNewDriverOpen || editingDriver !== null}
+          onClose={() => {
+            setIsNewDriverOpen(false);
+            setEditingDriver(null);
+          }}
+          onSubmit={editingDriver ? handleUpdateSubmit : createDriverMutation.mutateAsync}
+          currentUserRole="sacco_admin"
+          driver={editingDriver} // Pass the full driver object instead of initialData
+        />
       </div>
 
       <Card>
@@ -270,7 +205,7 @@ const SaccoDrivers = () => {
               <div className="h-10 bg-muted/50 rounded animate-pulse w-full"></div>
               <div className="h-10 bg-muted/50 rounded animate-pulse w-full"></div>
             </div>
-          ) : filteredDrivers.length > 0 ? (
+          ) : paginatedDrivers.length > 0 ? (
             <div className="rounded-md border">
               <Table>
                 <TableHeader>
@@ -278,31 +213,49 @@ const SaccoDrivers = () => {
                     <TableHead>Name</TableHead>
                     <TableHead>Phone</TableHead>
                     <TableHead>Email</TableHead>
-                    <TableHead>License</TableHead>
-                    <TableHead>Vehicle</TableHead>
+                    <TableHead>License Number</TableHead>
+                    <TableHead>License Expiry</TableHead>
+                    <TableHead>Rating</TableHead>
+                    <TableHead>Total Trips</TableHead>
                     <TableHead>Status</TableHead>
                     <TableHead>Actions</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {filteredDrivers.map((driver: Driver) => (
+                  {paginatedDrivers.map((driver) => (
                     <TableRow key={driver.id}>
                       <TableCell className="font-medium">{driver.name}</TableCell>
-                      <TableCell>{driver.phone}</TableCell>
-                      <TableCell>{driver.email}</TableCell>
-                      <TableCell>{driver.license_number}</TableCell>
+                      <TableCell>{driver.phone || "N/A"}</TableCell>
+                      <TableCell>{driver.email || "N/A"}</TableCell>
+                      <TableCell>{driver.licenseNumber || "N/A"}</TableCell>
                       <TableCell>
-                        {driver.vehicle_id ? `#${driver.vehicle_id}` : "Not Assigned"}
+                        <div className="flex items-center">
+                          <Calendar className="mr-1 h-4 w-4" />
+                          {formatDate(driver.licenseExpiry)}
+                        </div>
                       </TableCell>
+                      <TableCell>{driver.rating ? driver.rating.toFixed(1) : "0.0"}/5.0</TableCell>
+                      <TableCell>{driver.totalTrips || 0}</TableCell>
                       <TableCell>
                         <Badge variant={getStatusBadgeVariant(driver.status)}>
-                          {driver.status}
+                          {driver.status || "inactive"}
                         </Badge>
                       </TableCell>
                       <TableCell>
                         <div className="flex space-x-2">
-                          <Button variant="outline" size="sm">
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => handleEditClick(driver)}
+                          >
                             Edit
+                          </Button>
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => handleDeleteClick(driver.id)}
+                          >
+                            Delete
                           </Button>
                           <Button variant="outline" size="sm">
                             Assign Vehicle
@@ -326,11 +279,11 @@ const SaccoDrivers = () => {
                 <PaginationContent>
                   <PaginationItem>
                     <PaginationPrevious
-                      onClick={() => setPage(prev => Math.max(1, prev - 1))}
+                      onClick={() => setPage((prev) => Math.max(1, prev - 1))}
                       disabled={page === 1}
                     />
                   </PaginationItem>
-                  {[...Array(totalPages)].map((_, i) => (
+                  {Array.from({ length: totalPages }).map((_, i) => (
                     <PaginationItem key={i}>
                       <PaginationLink
                         isActive={page === i + 1}
@@ -342,7 +295,9 @@ const SaccoDrivers = () => {
                   ))}
                   <PaginationItem>
                     <PaginationNext
-                      onClick={() => setPage(prev => prev < totalPages ? prev + 1 : prev)}
+                      onClick={() =>
+                        setPage((prev) => (prev < totalPages ? prev + 1 : prev))
+                      }
                       disabled={page === totalPages}
                     />
                   </PaginationItem>

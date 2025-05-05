@@ -1,184 +1,249 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
+import { zodResolver } from "@hookform/resolvers/zod";
+import { useForm } from "react-hook-form";
+import * as z from "zod";
 import {
   Dialog,
   DialogContent,
   DialogHeader,
   DialogTitle,
+  DialogDescription,
 } from "@/components/ui/dialog";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import { 
-  Select, 
-  SelectContent, 
-  SelectItem, 
-  SelectTrigger, 
-  SelectValue 
+import {
+  Form,
+  FormControl,
+  FormField,
+  FormItem,
+  FormLabel,
+  FormMessage,
+} from "@/components/ui/form";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
 } from "@/components/ui/select";
+import { Input } from "@/components/ui/input";
+import { Button } from "@/components/ui/button";
+import { Loader2 } from "lucide-react";
 
-interface Props {
-  open: boolean;
-  onClose: () => void;
-  onSubmit: (data: any) => Promise<void>;
-  saccos: Array<{ id: number; name: string }>;
-  currentUserRole: 'system_admin' | 'sacco_admin';
-  currentSaccoId?: number; // Only needed for SACCO admins
-}
+const driverSchema = z.object({
+  fullName: z.string().min(1, "Full name is required"),
+  email: z.string().email("Invalid email address"),
+  phone: z.string().min(10, "Phone number must be at least 10 characters"),
+  licenseNumber: z.string().min(1, "License number is required"),
+  licenseExpiry: z.string().min(1, "License expiry date is required"),
+  status: z.string().optional(),
+  dateOfBirth: z.string().optional(),
+});
 
-export function RegisterDriverModal({ 
-  open, 
-  onClose, 
-  onSubmit, 
-  saccos, 
+export const RegisterDriverModal = ({
+  open,
+  onClose,
+  onSubmit,
+  initialData = null,
   currentUserRole,
-  currentSaccoId 
-}: Props) {
-  const [loading, setLoading] = useState(false);
-  const [formData, setFormData] = useState({
-    // User table fields
-    name: "",
-    email: "",
-    phone: "",
-    
-    // Driver table fields
-    licenseNumber: "",
-    licenseExpiry: "",
-    saccoId: currentUserRole === 'sacco_admin' ? currentSaccoId?.toString() || "" : "",
+}) => {
+  const [isSubmitting, setIsSubmitting] = useState(false);
+
+  const form = useForm({
+    resolver: zodResolver(driverSchema),
+    defaultValues: {
+      fullName: "",
+      email: "",
+      phone: "",
+      licenseNumber: "",
+      licenseExpiry: "",
+      status: "active",
+      dateOfBirth: "",
+    },
   });
 
-  const handleSubmit = async (e) => {
-    e.preventDefault();
-    
+  useEffect(() => {
+    if (initialData) {
+      form.reset({
+        fullName: initialData.name || "",
+        email: initialData.email || "",
+        phone: initialData.phone || "",
+        licenseNumber: initialData.licenseNumber || "",
+        licenseExpiry: initialData.licenseExpiry 
+          ? new Date(initialData.licenseExpiry).toISOString().split('T')[0]
+          : "",
+        status: initialData.status || "active",
+        dateOfBirth: initialData.dateOfBirth 
+          ? new Date(initialData.dateOfBirth).toISOString().split('T')[0]
+          : "",
+      });
+    } else {
+      form.reset({
+        fullName: "",
+        email: "",
+        phone: "",
+        licenseNumber: "",
+        licenseExpiry: "",
+        status: "active",
+        dateOfBirth: "",
+      });
+    }
+  }, [initialData, form]);
+
+  const handleSubmit = async (data) => {
     try {
-      setLoading(true);
-      
-      // Create the driver data structure to match our database needs
-      const driverData = {
-        // User table data
-        name: formData.name,
-        email: formData.email,
-        phone: formData.phone,
-        password: formData.licenseNumber.toUpperCase(), // License as uppercase password
-        role: 'driver',
-        
-        // Driver table data
-        licenseNumber: formData.licenseNumber,
-        licenseExpiry: formData.licenseExpiry,
-        saccoId: parseInt(formData.saccoId),
-        status: 'inactive', // Drivers start as inactive until approved
-      };
-      
-      await onSubmit(driverData);
-      onClose();
+      setIsSubmitting(true);
+      await onSubmit(data);
+      form.reset();
     } catch (error) {
-      console.error('Failed to register driver:', error);
+      console.error("Error submitting form:", error);
     } finally {
-      setLoading(false);
+      setIsSubmitting(false);
     }
   };
 
   return (
     <Dialog open={open} onOpenChange={onClose}>
-      <DialogContent className="sm:max-w-md">
+      <DialogContent className="sm:max-w-[500px]">
         <DialogHeader>
-          <DialogTitle>Register New Driver</DialogTitle>
+          <DialogTitle>{initialData ? "Edit Driver" : "Register New Driver"}</DialogTitle>
+          <DialogDescription>
+            {initialData
+              ? "Update the driver's information in your SACCO system."
+              : "Add a new driver to your SACCO management system."}
+          </DialogDescription>
         </DialogHeader>
-        <div className="space-y-4">
-          {/* User table fields */}
-          <div className="space-y-2">
-            <Label htmlFor="name">Full Name <span className="text-red-500">*</span></Label>
-            <Input
-              id="name"
-              value={formData.name}
-              onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-              required
-            />
-          </div>
 
-          <div className="space-y-2">
-            <Label htmlFor="email">Email Address <span className="text-red-500">*</span></Label>
-            <Input
-              id="email"
-              type="email"
-              value={formData.email}
-              onChange={(e) => setFormData({ ...formData, email: e.target.value })}
-              required
+        <Form {...form}>
+          <form onSubmit={form.handleSubmit(handleSubmit)} className="space-y-4">
+            <FormField
+              control={form.control}
+              name="fullName"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Full Name</FormLabel>
+                  <FormControl>
+                    <Input {...field} placeholder="John Doe" />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
             />
-          </div>
 
-          <div className="space-y-2">
-            <Label htmlFor="phone">Phone Number <span className="text-red-500">*</span></Label>
-            <Input
-              id="phone"
-              value={formData.phone}
-              onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
-              required
-            />
-          </div>
+            <div className="grid grid-cols-2 gap-4">
+              <FormField
+                control={form.control}
+                name="email"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Email</FormLabel>
+                    <FormControl>
+                      <Input {...field} type="email" placeholder="johndoe@example.com" />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
 
-          {/* Driver table fields */}
-          <div className="space-y-2">
-            <Label htmlFor="licenseNumber">License Number <span className="text-red-500">*</span></Label>
-            <Input
-              id="licenseNumber"
-              value={formData.licenseNumber}
-              onChange={(e) => setFormData({ ...formData, licenseNumber: e.target.value })}
-              required
-            />
-            <p className="text-xs text-gray-500">This will be used as their initial password (in UPPERCASE)</p>
-          </div>
+              <FormField
+                control={form.control}
+                name="phone"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Phone Number</FormLabel>
+                    <FormControl>
+                      <Input {...field} placeholder="+254712345678" />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+            </div>
 
-          <div className="space-y-2">
-            <Label htmlFor="licenseExpiry">License Expiry <span className="text-red-500">*</span></Label>
-            <Input
-              id="licenseExpiry"
-              type="date"
-              value={formData.licenseExpiry}
-              onChange={(e) => setFormData({ ...formData, licenseExpiry: e.target.value })}
-              required
-            />
-          </div>
+            <div className="grid grid-cols-2 gap-4">
+              <FormField
+                control={form.control}
+                name="licenseNumber"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>License Number</FormLabel>
+                    <FormControl>
+                      <Input {...field} placeholder="DL123456" />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
 
-          <div className="space-y-2">
-            {currentUserRole === 'system_admin' ? (
-              <>
-                <Label htmlFor="sacco">SACCO <span className="text-red-500">*</span></Label>
-                <Select 
-                  value={formData.saccoId}
-                  onValueChange={(value) => setFormData({ ...formData, saccoId: value })}
-                >
-                  <SelectTrigger id="sacco">
-                    <SelectValue placeholder="Select SACCO" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {saccos.map((sacco) => (
-                      <SelectItem key={sacco.id} value={sacco.id.toString()}>
-                        {sacco.name}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </>
-            ) : (
-              <>
-                <Label>SACCO</Label>
-                <div className="h-10 px-3 py-2 border rounded-md bg-gray-100">
-                  {saccos.find(s => s.id === parseInt(formData.saccoId))?.name || "Loading..."}
-                </div>
-              </>
+              <FormField
+                control={form.control}
+                name="licenseExpiry"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>License Expiry Date</FormLabel>
+                    <FormControl>
+                      <Input {...field} type="date" />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+            </div>
+
+            <div className="grid grid-cols-2 gap-4">
+              <FormField
+                control={form.control}
+                name="dateOfBirth"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Date of Birth</FormLabel>
+                    <FormControl>
+                      <Input {...field} type="date" />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+            </div>
+
+            {initialData && (
+              <FormField
+                control={form.control}
+                name="status"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Status</FormLabel>
+                    <Select
+                      onValueChange={field.onChange}
+                      defaultValue={field.value}
+                    >
+                      <FormControl>
+                        <SelectTrigger>
+                          <SelectValue placeholder="Select driver status" />
+                        </SelectTrigger>
+                      </FormControl>
+                      <SelectContent>
+                        <SelectItem value="active">Active</SelectItem>
+                        <SelectItem value="inactive">Inactive</SelectItem>
+                        <SelectItem value="suspended">Suspended</SelectItem>
+                      </SelectContent>
+                    </Select>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
             )}
-          </div>
 
-          <div className="flex justify-end gap-2 pt-2">
-            <Button type="button" variant="outline" onClick={onClose}>
-              Cancel
-            </Button>
-            <Button onClick={handleSubmit} disabled={loading}>
-              {loading ? "Registering..." : "Register Driver"}
-            </Button>
-          </div>
-        </div>
+            <div className="flex justify-end space-x-2 pt-4">
+              <Button variant="outline" type="button" onClick={onClose}>
+                Cancel
+              </Button>
+              <Button type="submit" disabled={isSubmitting}>
+                {isSubmitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                {initialData ? "Update Driver" : "Register Driver"}
+              </Button>
+            </div>
+          </form>
+        </Form>
       </DialogContent>
     </Dialog>
   );
-}
+};

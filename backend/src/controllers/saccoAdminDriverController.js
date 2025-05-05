@@ -110,6 +110,107 @@ class SaccoAdminDriverController {
       });
     }
   }
+
+  async updateDriver(req, res) {
+    try {
+      const saccoId = req.user.saccoId;
+      const driverId = req.params.id;
+      const { fullName, phone, email, licenseNumber, licenseExpiry, address, dateOfBirth, emergencyContact, status } = req.body;
+
+      const connection = await this.pool.getConnection();
+
+      try {
+        await connection.beginTransaction();
+
+        // First check if driver exists
+        const [driverExists] = await connection.query(
+          'SELECT user_id FROM drivers WHERE id = ? AND sacco_id = ?',
+          [driverId, saccoId]
+        );
+
+        if (!driverExists.length) {
+          return res.status(404).json({ message: 'Driver not found' });
+        }
+
+        // Update users table
+        await connection.query(
+          'UPDATE users SET name = ?, phone = ?, email = ?, status = ? WHERE id = ?',
+          [fullName, phone, email, status, driverExists[0].user_id]
+        );
+
+        // Update drivers table
+        await connection.query(
+          'UPDATE drivers SET license_number = ?, license_expiry = ?, address = ?, date_of_birth = ?, emergency_contact = ? WHERE id = ? AND sacco_id = ?',
+          [licenseNumber, licenseExpiry, address, dateOfBirth, emergencyContact, driverId, saccoId]
+        );
+
+        await connection.commit();
+        res.json({ message: 'Driver updated successfully' });
+      } catch (error) {
+        await connection.rollback();
+        throw error;
+      } finally {
+        connection.release();
+      }
+    } catch (error) {
+      console.error('[SaccoAdminDriverController] Error updating driver:', error);
+      res.status(500).json({
+        message: 'Error updating driver',
+        details: process.env.NODE_ENV === 'development' ? error.message : undefined
+      });
+    }
+  }
+
+  async deleteDriver(req, res) {
+    try {
+      const saccoId = req.user.saccoId;
+      const driverId = req.params.id;
+
+      const connection = await this.pool.getConnection();
+
+      try {
+        await connection.beginTransaction();
+
+        // First get the user_id
+        const [driver] = await connection.query(
+          'SELECT user_id FROM drivers WHERE id = ? AND sacco_id = ?',
+          [driverId, saccoId]
+        );
+
+        if (!driver.length) {
+          return res.status(404).json({ message: 'Driver not found' });
+        }
+
+        const userId = driver[0].user_id;
+
+        // Delete from drivers table
+        await connection.query(
+          'DELETE FROM drivers WHERE id = ? AND sacco_id = ?',
+          [driverId, saccoId]
+        );
+
+        // Delete from users table
+        await connection.query(
+          'DELETE FROM users WHERE id = ?',
+          [userId]
+        );
+
+        await connection.commit();
+        res.json({ message: 'Driver deleted successfully' });
+      } catch (error) {
+        await connection.rollback();
+        throw error;
+      } finally {
+        connection.release();
+      }
+    } catch (error) {
+      console.error('[SaccoAdminDriverController] Error deleting driver:', error);
+      res.status(500).json({
+        message: 'Error deleting driver',
+        details: process.env.NODE_ENV === 'development' ? error.message : undefined
+      });
+    }
+  }
 }
 
 export default SaccoAdminDriverController;

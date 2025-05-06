@@ -1,6 +1,7 @@
 import express from 'express';
 import { driverOnly } from '../middleware/authMiddleware.js';
 import { connectDB } from '../config/database.js';
+import DriverController from '../controllers/driverController.js';
 import DriverDashboardController from '../controllers/driverDashboardController.js';
 import DriverRoutesController from '../controllers/driverRoutesController.js';
 import DriverTripsController from '../controllers/driverTripsController.js';
@@ -18,8 +19,9 @@ let pool;
   }
 })();
 
-// Initialize controllers with pool
+// Initialize controllers
 let driverController;
+let driverDashboardController;
 let driverRoutesController;
 let tripsController;
 
@@ -28,7 +30,8 @@ let tripsController;
     if (!pool) {
       pool = await connectDB();
     }
-    driverController = new DriverDashboardController(pool);
+    driverController = new DriverController(pool);
+    driverDashboardController = new DriverDashboardController(pool);
     driverRoutesController = new DriverRoutesController(pool);
     tripsController = new DriverTripsController(pool);
     console.log('[Driver Routes] Controllers initialized successfully');
@@ -39,69 +42,56 @@ let tripsController;
 
 // Debug middleware
 router.use((req, res, next) => {
-  console.log('[Driver Routes] Handling request:', {
-    path: req.path,
-    method: req.method,
-    hasPool: !!pool,
-    hasController: !!driverController
-  });
-
-  if (!pool) {
-    console.error('[Driver Routes] Pool not initialized');
-    return res.status(500).json({ message: 'Database connection not available' });
+  if (!pool || !driverController) {
+    return res.status(500).json({ message: 'Service initialization in progress' });
   }
-
-  if (!driverController) {
-    console.error('[Driver Routes] Driver controller not initialized');
-    return res.status(500).json({ message: 'Server initialization error' });
-  }
-
   next();
 });
 
-// Add debug middleware for route matching
-router.use((req, res, next) => {
-  console.log('[Driver Routes] Incoming request:', {
-    path: req.path,
-    method: req.method,
-    params: req.params,
-    query: req.query
-  });
-  next();
-});
-
-// Dashboard stats route
-router.get('/dashboard-stats', driverOnly, (req, res) => 
-  driverController.getDashboardStats(req, res)
+// CRUD Routes
+// CREATE - Register new driver
+router.post('/register', (req, res) => 
+  driverController.createDriver(req, res)
 );
 
-// Vehicle info route
-router.get('/vehicle-info', driverOnly, (req, res) => 
-  driverController.getVehicleInfo(req, res)
-);
-
-// Update driver status route
-router.put('/status', driverOnly, (req, res) => 
-  driverController.updateDriverStatus(req, res)
-);
-
-// Profile route
+// READ - Get driver profile
 router.get('/profile', driverOnly, (req, res) => 
   driverController.getProfile(req, res)
 );
 
+// UPDATE - Update driver profile
 router.put('/profile', driverOnly, (req, res) => 
   driverController.updateProfile(req, res)
 );
 
-// License route
+// UPDATE - Update license information
 router.put('/license', driverOnly, (req, res) => 
   driverController.updateLicense(req, res)
 );
 
-// Change password route
+// DELETE - Deactivate account
+router.delete('/account', driverOnly, (req, res) => 
+  driverController.deleteAccount(req, res)
+);
+
+// Additional routes
 router.post('/change-password', driverOnly, (req, res) => 
   driverController.changePassword(req, res)
+);
+
+// Dashboard stats route
+router.get('/dashboard-stats', driverOnly, (req, res) => 
+  driverDashboardController.getDashboardStats(req, res)
+);
+
+// Vehicle info route
+router.get('/vehicle-info', driverOnly, (req, res) => 
+  driverDashboardController.getVehicleInfo(req, res)
+);
+
+// Update driver status route
+router.put('/status', driverOnly, (req, res) => 
+  driverDashboardController.updateDriverStatus(req, res)
 );
 
 // Settings routes
@@ -150,7 +140,7 @@ router.get('/routes', driverOnly, (req, res) => {
   return driverRoutesController.getRoutes(req, res);
 });
 
-router.get('/api/driver/routes/active', driverOnly, (req, res) => {
+router.get('/routes/active', driverOnly, (req, res) => {
   console.log('[Driver Routes] Handling active route request');
   if (!driverRoutesController) {
     return res.status(500).json({ message: 'Service unavailable' });

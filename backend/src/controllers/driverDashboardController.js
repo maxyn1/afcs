@@ -6,16 +6,16 @@ class DriverDashboardController {
 
   async getDashboardStats(req, res) {
     try {
-      const driverId = req.user.userId;
-      console.log('Fetching dashboard stats for driver:', driverId);
+      const userId = req.user.userId;
+      console.log('Fetching dashboard stats for driver user:', userId);
 
       const today = new Date().toISOString().split('T')[0];
       console.log('Fetching stats for date:', today);
 
-      // First, get the driver ID from the users table
+      // First, get the driver ID from the drivers table
       const [driverRows] = await this.pool.query(
-        'SELECT d.id, d.status FROM drivers d WHERE d.user_id = ?',
-        [driverId]
+        'SELECT id, status FROM drivers WHERE user_id = ?',
+        [userId]
       );
 
       if (driverRows.length === 0) {
@@ -27,7 +27,7 @@ class DriverDashboardController {
 
       // Get current route
       const [routeRows] = await this.pool.query(`
-        SELECT r.id, r.start_location, r.end_location as name
+        SELECT r.id, r.start_location, r.end_location
         FROM trips t
         JOIN routes r ON t.route_id = r.id
         WHERE t.driver_id = ? AND t.status = 'in_progress'
@@ -55,7 +55,7 @@ class DriverDashboardController {
         totalPassengers: stats?.totalPassengers || 0,
         isOnline: driverStatus === 'active',
         currentRoute: routeRows.length > 0 
-          ? `${routeRows[0].start_location} - ${routeRows[0].name}`
+          ? `${routeRows[0].start_location} - ${routeRows[0].end_location}`
           : 'Not assigned'
       };
 
@@ -76,26 +76,36 @@ class DriverDashboardController {
 
   async getVehicleInfo(req, res) {
     try {
-      const driverId = req.user.userId;
-      console.log('Fetching vehicle info for driver:', driverId);
+      const userId = req.user.userId;
+      console.log('Fetching vehicle info for driver user:', userId);
 
-      // First, get the driver's database ID and vehicle ID
+      // First, get the driver's database ID
       const [driverRows] = await this.pool.query(`
-        SELECT d.id, v.id as vehicle_id
+        SELECT d.id
         FROM drivers d
-        JOIN trips t ON d.id = t.driver_id
-        JOIN vehicles v ON t.vehicle_id = v.id
         WHERE d.user_id = ?
-        AND t.status = 'in_progress'
-        LIMIT 1
-      `, [driverId]);
+      `, [userId]);
 
       if (driverRows.length === 0) {
-        console.warn('No vehicle currently assigned to driver:', driverId);
+        return res.status(404).json({ message: 'Driver not found' });
+      }
+
+      const driverDbId = driverRows[0].id;
+
+      // Find the vehicle currently assigned to this driver via the active trip
+      const [tripRows] = await this.pool.query(`
+        SELECT vehicle_id 
+        FROM trips 
+        WHERE driver_id = ? AND status = 'in_progress'
+        LIMIT 1
+      `, [driverDbId]);
+
+      if (tripRows.length === 0) {
+        console.warn('No active trip found for driver:', driverDbId);
         return res.status(404).json({ message: 'No vehicle currently assigned' });
       }
 
-      const vehicleId = driverRows[0].vehicle_id;
+      const vehicleId = tripRows[0].vehicle_id;
 
       const query = `
         SELECT 
@@ -107,9 +117,10 @@ class DriverDashboardController {
           v.status as vehicle_status,
           s.name as sacco_name,
           m.maintenance_date as last_maintenance,
-          DATE_ADD(m.maintenance_date, INTERVAL 3 MONTH) as insurance_expiry
+          v.last_maintenance_date,
+          DATE_ADD(COALESCE(m.maintenance_date, v.last_maintenance_date), INTERVAL 3 MONTH) as next_maintenance_due
         FROM vehicles v
-        JOIN saccos s ON v.sacco_id = s.id
+        LEFT JOIN saccos s ON v.sacco_id = s.id
         LEFT JOIN (
           SELECT vehicle_id, MAX(maintenance_date) as maintenance_date
           FROM maintenance_logs
@@ -145,18 +156,18 @@ class DriverDashboardController {
   async updateDriverStatus(req, res) {
     try {
       const { status } = req.body;
-      const driverId = req.user.userId;
-      console.log('Updating driver status:', { driverId, status });
+      const userId = req.user.userId;
+      console.log('Updating driver status:', { userId, status });
 
       // Validate status
-      if (!['active', 'inactive'].includes(status)) {
-        return res.status(400).json({ message: 'Invalid status. Use "active" or "inactive".' });
+      if (!['active', 'inactive', 'suspended'].includes(status)) {
+        return res.status(400).json({ message: 'Invalid status. Use "active", "inactive", or "suspended".' });
       }
 
-      // First, get the driver's database ID
+      // Get the driver's database ID
       const [driverRows] = await this.pool.query(
         'SELECT id FROM drivers WHERE user_id = ?',
-        [driverId]
+        [userId]
       );
 
       if (driverRows.length === 0) {
@@ -169,7 +180,7 @@ class DriverDashboardController {
       console.log('Executing query with params:', { driverDbId, status });
       await this.pool.query(query, [status, driverDbId]);
 
-      console.log('Driver status updated successfully for driver:', driverId);
+      console.log('Driver status updated successfully for driver:', userId);
       res.json({ message: 'Status updated successfully' });
     } catch (error) {
       console.error('Error in updateDriverStatus:', {
@@ -186,7 +197,8 @@ class DriverDashboardController {
 
   async getProfile(req, res) {
     try {
-      console.log('Getting driver profile for user:', req.user.userId);
+      const userId = req.user.userId;
+      console.log('Getting driver profile for user:', userId);
       
       // Get driver details including user info
       const [driverRows] = await this.pool.query(`
@@ -201,28 +213,32 @@ class DriverDashboardController {
           u.email,
           u.phone,
           s.name as sacco_name,
-          v.id as vehicle_id
+          d.sacco_id
         FROM drivers d
         JOIN users u ON d.user_id = u.id
         LEFT JOIN saccos s ON d.sacco_id = s.id
-        LEFT JOIN (
-          SELECT driver_id, vehicle_id 
-          FROM trips 
-          WHERE status = 'in_progress' 
-          ORDER BY departure_time DESC 
-          LIMIT 1
-        ) t ON d.id = t.driver_id
-        LEFT JOIN vehicles v ON t.vehicle_id = v.id
         WHERE d.user_id = ?`,
-        [req.user.userId]
+        [userId]
       );
 
       if (driverRows.length === 0) {
-        console.log('No driver profile found for user:', req.user.userId);
+        console.log('No driver profile found for user:', userId);
         return res.status(404).json({ message: 'Driver profile not found' });
       }
 
       const driver = driverRows[0];
+      
+      // Get current vehicle if any (via active trip)
+      const [tripRows] = await this.pool.query(`
+        SELECT vehicle_id 
+        FROM trips 
+        WHERE driver_id = ? AND status = 'in_progress'
+        ORDER BY departure_time DESC 
+        LIMIT 1
+      `, [driver.id]);
+      
+      const vehicleId = tripRows.length > 0 ? tripRows[0].vehicle_id : null;
+      
       console.log('Found driver profile:', driver);
 
       res.json({
@@ -236,7 +252,8 @@ class DriverDashboardController {
         rating: Number(driver.driver_rating) || 0,
         trips_count: Number(driver.total_trips) || 0,
         sacco_name: driver.sacco_name,
-        vehicle_id: driver.vehicle_id,
+        sacco_id: driver.sacco_id,
+        vehicle_id: vehicleId,
       });
 
     } catch (error) {

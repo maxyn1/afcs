@@ -19,10 +19,49 @@ dotenv.config();
 const app = express();
 const PORT = process.env.PORT || 3000;
 
-// Debug middleware - add this before other middleware
+// Enhanced request logging middleware
 app.use((req, res, next) => {
-  console.log(`📥 ${new Date().toISOString()} - ${req.method} ${req.url}`);
-  console.log('Headers:', req.headers);
+  const startTime = Date.now();
+  const requestId = Math.random().toString(36).substring(7);
+
+  // Log request details
+  console.log(`\n🔍 [${requestId}] Incoming Request:`, {
+    timestamp: new Date().toISOString(),
+    method: req.method,
+    url: req.url,
+    path: req.path,
+    query: req.query,
+    params: req.params,
+    body: req.body,
+    headers: {
+      'content-type': req.headers['content-type'],
+      'user-agent': req.headers['user-agent'],
+      'authorization': req.headers.authorization ? '********' : undefined
+    },
+    ip: req.ip
+  });
+
+  // Log response details
+  res.on('finish', () => {
+    const duration = Date.now() - startTime;
+    console.log(`✨ [${requestId}] Response Sent:`, {
+      timestamp: new Date().toISOString(),
+      duration: `${duration}ms`,
+      status: res.statusCode,
+      statusMessage: res.statusMessage,
+      headers: res.getHeaders()
+    });
+  });
+
+  // Log any errors
+  res.on('error', (error) => {
+    console.error(`❌ [${requestId}] Response Error:`, {
+      timestamp: new Date().toISOString(),
+      error: error.message,
+      stack: error.stack
+    });
+  });
+
   next();
 });
 
@@ -53,34 +92,6 @@ app.use('/api/mpesa', express.raw({ type: 'application/json' }));
 // Regular body parser for other routes
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
-
-// Request logging middleware
-app.use((req, res, next) => {
-  const start = Date.now();
-  console.log('📝 Request:', {
-    timestamp: new Date().toISOString(),
-    method: req.method,
-    path: req.path,
-    query: req.query,
-    body: req.body,
-    ip: req.ip,
-    headers: {
-      'content-type': req.headers['content-type'],
-      'user-agent': req.headers['user-agent']
-    }
-  });
-
-  res.on('finish', () => {
-    const duration = Date.now() - start;
-    console.log('🏁 Response:', {
-      path: req.path,
-      statusCode: res.statusCode,
-      duration: `${duration}ms`
-    });
-  });
-
-  next();
-});
 
 // API Routes
 app.use('/api/users', userRoutes);

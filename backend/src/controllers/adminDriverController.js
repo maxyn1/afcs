@@ -204,7 +204,26 @@ class AdminDriverController {
       
       // Validate required fields
       if (!fullName || !phone || !email || !licenseNumber || !licenseExpiry || !saccoId) {
-        return res.status(400).json({ message: 'Missing required fields' });
+        return res.status(400).json({ 
+          message: 'Required fields missing',
+          required: ['fullName', 'phone', 'email', 'licenseNumber', 'licenseExpiry', 'saccoId']
+        });
+      }
+
+      // Validate email format
+      if (!email.match(/^[^\s@]+@[^\s@]+\.[^\s@]+$/)) {
+        return res.status(400).json({ message: 'Invalid email format' });
+      }
+
+      // Validate phone format
+      if (!phone.match(/^\+?[\d\s-]{10,}$/)) {
+        return res.status(400).json({ message: 'Invalid phone number format' });
+      }
+
+      // Validate license expiry date
+      const expiryDate = new Date(licenseExpiry);
+      if (isNaN(expiryDate.getTime()) || expiryDate < new Date()) {
+        return res.status(400).json({ message: 'Invalid or expired license expiry date' });
       }
 
       const userId = crypto.randomUUID();
@@ -215,6 +234,36 @@ class AdminDriverController {
       
       try {
         await connection.beginTransaction();
+
+        // Verify SACCO exists
+        const [sacco] = await connection.query(
+          'SELECT id FROM saccos WHERE id = ? AND status = "active"',
+          [saccoId]
+        );
+
+        if (sacco.length === 0) {
+          return res.status(404).json({ message: 'SACCO not found or inactive' });
+        }
+
+        // Check for existing email or phone
+        const [existingUser] = await connection.query(
+          'SELECT id FROM users WHERE email = ? OR phone = ?',
+          [email, phone]
+        );
+
+        if (existingUser.length > 0) {
+          return res.status(409).json({ message: 'Email or phone number already registered' });
+        }
+
+        // Check for existing license number
+        const [existingLicense] = await connection.query(
+          'SELECT id FROM drivers WHERE license_number = ?',
+          [upperLicenseNumber]
+        );
+
+        if (existingLicense.length > 0) {
+          return res.status(409).json({ message: 'License number already registered' });
+        }
         
         // Create user account with user-specific fields
         await connection.query(
@@ -225,7 +274,7 @@ class AdminDriverController {
         // Create driver record with driver-specific fields
         const [result] = await connection.query(
           'INSERT INTO drivers (user_id, sacco_id, license_number, license_expiry, driver_rating, total_trips, status) VALUES (?, ?, ?, ?, ?, ?, ?)',
-          [userId, saccoId, licenseNumber, licenseExpiry, 0.00, 0, 'active']
+          [userId, saccoId, upperLicenseNumber, licenseExpiry, 0.00, 0, 'active']
         );
 
         await connection.commit();
@@ -233,7 +282,8 @@ class AdminDriverController {
         res.status(201).json({
           message: 'Driver registered successfully',
           driverId: result.insertId,
-          defaultPassword: upperLicenseNumber
+          defaultPassword: upperLicenseNumber,
+          defaultPasswordMessage: 'Please instruct the driver to change their password on first login'
         });
       } catch (error) {
         await connection.rollback();

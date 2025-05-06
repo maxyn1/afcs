@@ -9,6 +9,12 @@ import { Bus, Calendar, Wrench, Shield } from "lucide-react";
 import { format } from "date-fns";
 import type { VehicleInfo } from "@/services/driverService";
 
+function isValidDate(dateString: string | null | undefined): boolean {
+  if (!dateString) return false;
+  const date = new Date(dateString);
+  return !isNaN(date.getTime());
+}
+
 interface VehicleDetailsModalProps {
   isOpen: boolean;
   onClose: () => void;
@@ -66,13 +72,13 @@ export function VehicleDetailsModal({
               <div className="flex items-center gap-2">
                 <Calendar className="h-4 w-4 text-muted-foreground" />
                 <span className="text-sm text-muted-foreground">Insurance Expires:</span>
-                <span>{format(new Date(vehicleInfo.insurance_expiry), 'PPP')}</span>
+                <span>{isValidDate(vehicleInfo.insurance_expiry) ? format(new Date(vehicleInfo.insurance_expiry), 'PPP') : 'N/A'}</span>
               </div>
               
               <div className="flex items-center gap-2">
                 <Wrench className="h-4 w-4 text-muted-foreground" />
                 <span className="text-sm text-muted-foreground">Last Maintenance:</span>
-                <span>{format(new Date(vehicleInfo.last_maintenance), 'PPP')}</span>
+                <span>{isValidDate(vehicleInfo.last_maintenance) ? format(new Date(vehicleInfo.last_maintenance), 'PPP') : 'N/A'}</span>
               </div>
 
               <div className="flex items-center gap-2">

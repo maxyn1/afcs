@@ -23,6 +23,37 @@ export interface Route {
   assigned_vehicles: number;
 }
 
+export interface Payment {
+  id: number;
+  amount: number;
+  status: 'pending' | 'completed' | 'failed';
+  transactionTime: string;
+  transactionType: 'payment' | 'refund';
+  paymentMethod: string;
+  userId: string;
+  userName: string;
+  vehicleId: number;
+  vehicleRegistration: string;
+  tripId: number;
+}
+
+export interface Report {
+  revenue: number;
+  tripCount: number;
+  passengerCount: number;
+  activeVehicles: number;
+  activeDrivers: number;
+  period: {
+    start: string;
+    end: string;
+  };
+  transactions: {
+    completed: number;
+    pending: number;
+    failed: number;
+  };
+}
+
 class SaccoAdminService {
   async getDashboardStats(): Promise<SaccoStats> {
     try {
@@ -49,7 +80,7 @@ class SaccoAdminService {
     return response.data;
   }
 
-  async getPayments(startDate?: string, endDate?: string): Promise<any> {
+  async getPayments(startDate?: string, endDate?: string): Promise<Payment[]> {
     const params = startDate && endDate ? { startDate, endDate } : {};
     const response = await api.get('/sacco-admin/payments', { params });
     return response.data;
@@ -123,7 +154,7 @@ class SaccoAdminService {
     await api.post(`/sacco-admin/vehicles/${vehicleId}/unassign-driver`);
   }
 
-  async generateReport(type: 'daily' | 'weekly' | 'monthly', date?: string): Promise<any> {
+  async generateReport(type: 'daily' | 'weekly' | 'monthly', date?: string): Promise<Report> {
     const response = await api.get('/sacco-admin/reports', {
       params: { type, date }
     });

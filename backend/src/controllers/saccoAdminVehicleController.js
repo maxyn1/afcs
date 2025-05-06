@@ -567,7 +567,8 @@ class SaccoAdminVehicleController {
           d.id,
           u.name,
           d.license_number,
-          d.license_expiry
+          d.license_expiry,
+          d.driver_rating
         FROM drivers d
         INNER JOIN users u ON d.user_id = u.id
         WHERE d.sacco_id = ? 
@@ -576,7 +577,16 @@ class SaccoAdminVehicleController {
         [saccoId]
       );
 
-      res.json(drivers);
+      // Transform dates and numbers for frontend consistency
+      const transformedDrivers = drivers.map(driver => ({
+        id: driver.id,
+        name: driver.name,
+        licenseNumber: driver.license_number,
+        licenseExpiry: driver.license_expiry ? new Date(driver.license_expiry).toISOString() : null,
+        rating: Number(driver.driver_rating) || 0
+      }));
+
+      res.json(transformedDrivers);
     } catch (error) {
       console.error('[SaccoAdminVehicleController] Error getting available drivers:', error);
       res.status(500).json({ 

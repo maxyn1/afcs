@@ -4,6 +4,8 @@ import {
   DialogContent,
   DialogHeader,
   DialogTitle,
+  DialogDescription,
+  DialogFooter,
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import {
@@ -93,6 +95,9 @@ export function AssignDriverModal({ vehicleId, open, onClose, vehicleRegistratio
       <DialogContent>
         <DialogHeader>
           <DialogTitle>Assign Driver to Vehicle {vehicleRegistrationNumber}</DialogTitle>
+          <DialogDescription>
+            Select a driver to assign to vehicle {vehicleRegistrationNumber}
+          </DialogDescription>
         </DialogHeader>
         <form onSubmit={handleSubmit} className="space-y-4">
           <div className="space-y-2">
@@ -105,16 +110,26 @@ export function AssignDriverModal({ vehicleId, open, onClose, vehicleRegistratio
                 <SelectValue placeholder="Select a driver" />
               </SelectTrigger>
               <SelectContent>
-                {drivers.map((driver: Driver) => (
-                  <SelectItem key={driver.id} value={driver.id.toString()}>
-                    {driver.name} - {driver.licenseNumber}
+                {isLoading ? (
+                  <SelectItem value="loading" disabled>
+                    Loading drivers...
                   </SelectItem>
-                ))}
+                ) : drivers.length === 0 ? (
+                  <SelectItem value="none" disabled>
+                    No available drivers
+                  </SelectItem>
+                ) : (
+                  drivers.map((driver: Driver) => (
+                    <SelectItem key={driver.id} value={driver.id.toString()}>
+                      {driver.name} - {driver.licenseNumber}
+                    </SelectItem>
+                  ))
+                )}
               </SelectContent>
             </Select>
           </div>
           
-          <div className="flex justify-end space-x-2">
+          <DialogFooter>
             <Button type="button" variant="outline" onClick={onClose}>
               Cancel
             </Button>
@@ -124,7 +139,7 @@ export function AssignDriverModal({ vehicleId, open, onClose, vehicleRegistratio
             >
               {assignDriverMutation.isPending ? "Assigning..." : "Assign Driver"}
             </Button>
-          </div>
+          </DialogFooter>
         </form>
       </DialogContent>
     </Dialog>

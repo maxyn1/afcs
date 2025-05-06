@@ -1,4 +1,5 @@
 import axios from 'axios';
+import api from './api';
 
 export interface Driver {
   id: string;
@@ -116,45 +117,9 @@ export interface Route {
 
 class DriverService {
   private static instance: DriverService | null = null;
-  private readonly axiosInstance: ReturnType<typeof axios.create>;
-  private readonly API_URL: string = import.meta.env.VITE_API_URL || 'http://localhost:3000/api/driver';
 
   private constructor() {
-    this.axiosInstance = axios.create({
-      baseURL: this.API_URL,
-      timeout: 10000,
-      headers: {
-        'Content-Type': 'application/json'
-      }
-    });
-    this.setupInterceptors();
-  }
-
-  private setupInterceptors(): void {
-    this.axiosInstance.interceptors.request.use(
-      (config) => {
-        const token = localStorage.getItem('token');
-        if (token) {
-          config.headers.Authorization = `Bearer ${token}`;
-        }
-        return config;
-      },
-      (error) => {
-        console.error('Request interceptor error:', error);
-        return Promise.reject(error);
-      }
-    );
-
-    this.axiosInstance.interceptors.response.use(
-      (response) => response,
-      (error) => {
-        if (error.response?.status === 401) {
-          localStorage.removeItem('token');
-          window.location.href = '/login';
-        }
-        return Promise.reject(error);
-      }
-    );
+    // No need to create a new axios instance or store API_URL, we'll use the common api instance
   }
 
   public static getInstance(): DriverService {
@@ -174,7 +139,7 @@ class DriverService {
     saccoId?: string;
   }): Promise<{ message: string; driverId: string }> {
     try {
-      const response = await this.axiosInstance.post('/register', data);
+      const response = await api.post('/driver/register', data);
       return response.data;
     } catch (error) {
       console.error('Failed to register driver:', error);
@@ -185,7 +150,7 @@ class DriverService {
   // READ - Get driver profile
   async getProfile(): Promise<Driver> {
     try {
-      const response = await this.axiosInstance.get('/profile');
+      const response = await api.get('/driver/profile');
       return response.data;
     } catch (error) {
       console.error('Failed to fetch profile:', error);
@@ -196,7 +161,7 @@ class DriverService {
   // UPDATE - Update driver profile
   async updateProfile(data: Partial<Driver>): Promise<Driver> {
     try {
-      const response = await this.axiosInstance.put('/profile', data);
+      const response = await api.put('/driver/profile', data);
       return response.data;
     } catch (error) {
       console.error('Failed to update profile:', error);
@@ -207,7 +172,7 @@ class DriverService {
   // UPDATE - Update license information
   async updateLicenseInfo(data: { license_number: string; license_expiry: string }): Promise<{ message: string }> {
     try {
-      const response = await this.axiosInstance.put('/license', data);
+      const response = await api.put('/driver/license', data);
       return response.data;
     } catch (error) {
       console.error('Failed to update license:', error);
@@ -218,8 +183,8 @@ class DriverService {
   // DELETE - Deactivate account
   async deactivateAccount(): Promise<{ message: string }> {
     try {
-      const response = await this.axiosInstance.delete('/account');
-      await this.axiosInstance.delete('/settings/deactivate');
+      const response = await api.delete('/driver/account');
+      await api.delete('/driver/settings/deactivate');
       return response.data;
     } catch (error) {
       console.error('Failed to deactivate account:', error);
@@ -230,7 +195,7 @@ class DriverService {
   // Additional methods
   async changePassword(data: { oldPassword: string; newPassword: string }): Promise<{ message: string }> {
     try {
-      const response = await this.axiosInstance.post('/change-password', data);
+      const response = await api.post('/driver/change-password', data);
       return response.data;
     } catch (error) {
       console.error('Failed to change password:', error);
@@ -239,14 +204,14 @@ class DriverService {
   }
 
   async getStats() {
-    const response = await this.axiosInstance.get('/stats');
+    const response = await api.get('/driver/stats');
     return response.data;
   }
 
   async getTripHistory(page = 1, limit = 10) {
     try {
       console.log('Fetching trip history:', { page, limit });
-      const response = await this.axiosInstance.get<{trips: Trip[], totalPages: number}>('/trips', {
+      const response = await api.get<{trips: Trip[], totalPages: number}>('/driver/trips', {
         params: { 
           page,
           limit,
@@ -264,7 +229,7 @@ class DriverService {
   async updateStatus(status: 'active' | 'inactive'): Promise<void> {
     try {
       console.log('Updating driver status:', status);
-      const response = await this.axiosInstance.put('/status', { status });
+      const response = await api.put('/driver/status', { status });
       console.log('Status update response:', response.data);
     } catch (error) {
       console.error('Failed to update status:', {
@@ -277,14 +242,14 @@ class DriverService {
   }
 
   async reportIssue(issue: { type: string; description: string; priority: 'low' | 'medium' | 'high' }) {
-    const response = await this.axiosInstance.post('/issues', issue);
+    const response = await api.post('/driver/issues', issue);
     return response.data;
   }
 
   async getDashboardStats(): Promise<DashboardStats> {
     try {
       console.log('Making request to /driver/dashboard-stats');
-      const response = await this.axiosInstance.get<DashboardStats>('/dashboard-stats');
+      const response = await api.get<DashboardStats>('/driver/dashboard-stats');
       console.log('Dashboard stats response:', response.data);
       return response.data;
     } catch (error) {
@@ -299,7 +264,7 @@ class DriverService {
 
   async getVehicleInfo(): Promise<VehicleInfo> {
     try {
-      const response = await this.axiosInstance.get<VehicleInfo>('/vehicle-info');
+      const response = await api.get<VehicleInfo>('/driver/vehicle-info');
       return response.data;
     } catch (error) {
       console.error('Failed to fetch vehicle info:', error);
@@ -309,7 +274,7 @@ class DriverService {
 
   async getSettings(): Promise<Settings> {
     try {
-      const response = await this.axiosInstance.get('/settings');
+      const response = await api.get('/driver/settings');
       return response.data;
     } catch (error) {
       console.error('Failed to fetch settings:', error);
@@ -319,7 +284,7 @@ class DriverService {
 
   async updateSettings(data: Partial<Settings>): Promise<Settings> {
     try {
-      const response = await this.axiosInstance.put('/settings', data);
+      const response = await api.put('/driver/settings', data);
       return response.data;
     } catch (error) {
       console.error('Failed to update settings:', error);
@@ -329,7 +294,7 @@ class DriverService {
 
   async updateNotificationPreferences(data: Partial<NotificationPreferences>): Promise<Settings> {
     try {
-      const response = await this.axiosInstance.put('/settings/notifications', data);
+      const response = await api.put('/driver/settings/notifications', data);
       return response.data;
     } catch (error) {
       console.error('Failed to update notifications:', error);
@@ -339,7 +304,7 @@ class DriverService {
 
   async updatePassword(data: { currentPassword: string; newPassword: string }): Promise<void> {
     try {
-      await this.axiosInstance.put('/settings/password', data);
+      await api.put('/driver/settings/password', data);
     } catch (error) {
       console.error('Failed to update password:', error);
       throw error;
@@ -348,7 +313,7 @@ class DriverService {
 
   async logoutAllDevices(): Promise<void> {
     try {
-      await this.axiosInstance.post('/settings/logout-all');
+      await api.post('/driver/settings/logout-all');
     } catch (error) {
       console.error('Failed to logout all devices:', error);
       throw error;
@@ -356,17 +321,17 @@ class DriverService {
   }
 
   async getConversations(): Promise<Conversation[]> {
-    const response = await this.axiosInstance.get('/conversations');
+    const response = await api.get('/driver/conversations');
     return response.data;
   }
 
   async getMessages(conversationId: number): Promise<Message[]> {
-    const response = await this.axiosInstance.get(`/conversations/${conversationId}/messages`);
+    const response = await api.get(`/driver/conversations/${conversationId}/messages`);
     return response.data;
   }
 
   async sendMessage(conversationId: number, content: string): Promise<Message> {
-    const response = await this.axiosInstance.post(`/conversations/${conversationId}/messages`, {
+    const response = await api.post(`/driver/conversations/${conversationId}/messages`, {
       content
     });
     return response.data;
@@ -375,7 +340,7 @@ class DriverService {
   public async getRoutes(): Promise<Route[]> {
     try {
       console.log('Fetching driver routes...');
-      const response = await this.axiosInstance.get<Route[]>('/routes');
+      const response = await api.get<Route[]>('/driver/routes');
       console.log('Routes fetched successfully:', response.data);
       return response.data;
     } catch (error) {
@@ -387,7 +352,7 @@ class DriverService {
   public async getActiveRoute(): Promise<Route | null> {
     try {
       console.log('[DriverService] Fetching active route...');
-      const response = await this.axiosInstance.get<Route>('/routes/active');
+      const response = await api.get<Route>('/driver/routes/active');
       
       console.log('[DriverService] Active route response:', response.data);
       return response.data;
@@ -411,7 +376,7 @@ class DriverService {
     }
     try {
       console.log('Starting route:', routeId);
-      await this.axiosInstance.post(`/routes/${routeId}/start`);
+      await api.post(`/driver/routes/${routeId}/start`);
       console.log('Route started successfully');
     } catch (error) {
       console.error('Failed to start route:', error);
@@ -425,7 +390,7 @@ class DriverService {
     }
     try {
       console.log('Ending route:', routeId);
-      await this.axiosInstance.post(`/routes/${routeId}/end`);
+      await api.post(`/driver/routes/${routeId}/end`);
       console.log('Route ended successfully');
     } catch (error) {
       console.error('Failed to end route:', error);

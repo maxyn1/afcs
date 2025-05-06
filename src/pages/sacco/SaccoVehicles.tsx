@@ -1,21 +1,9 @@
 import { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import saccoAdminService from "@/services/saccoAdminService";
-import vehicleService from "@/services/vehicleService";
+import vehicleService, { Vehicle } from "@/services/vehicleService";
 import { useAuth } from "@/contexts/AuthContext";
-
-interface Vehicle {
-  id: number;
-  registrationNumber: string;
-  capacity: number;
-  make: string;
-  model: string;
-  year: number;
-  saccoName: string;
-  status: string;
-  routes?: string;
-}
-
+import { AssignDriverModal } from "@/components/vehicles/AssignDriverModal";
 import {
   Card,
   CardContent,
@@ -44,8 +32,15 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { Plus, Search } from "lucide-react";
+import { Car, Plus, Search } from "lucide-react";
 import { toast } from "@/hooks/use-toast";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 
 const SaccoVehicles = () => {
   const { user } = useAuth();
@@ -53,12 +48,24 @@ const SaccoVehicles = () => {
   const [isNewVehicleOpen, setIsNewVehicleOpen] = useState(false);
   const [isEditVehicleOpen, setIsEditVehicleOpen] = useState(false);
   const [selectedVehicle, setSelectedVehicle] = useState<Vehicle | null>(null);
-  const [newVehicleData, setNewVehicleData] = useState({
-    registration_number: "",
+  const [isAssignDriverOpen, setIsAssignDriverOpen] = useState(false);
+  const [selectedVehicleForDriver, setSelectedVehicleForDriver] = useState<Vehicle | null>(null);
+  const [newVehicleData, setNewVehicleData] = useState<{
+    registrationNumber: string;
+    capacity: number;
+    make: string;
+    model: string;
+    year: number;
+    sacco_id: string;
+    status: 'active' | 'maintenance' | 'retired';
+  }>({
+    registrationNumber: "",
     capacity: 14,
     make: "",
     model: "",
     year: new Date().getFullYear(),
+    sacco_id: user?.sacco_id || "",
+    status: "active"
   });
 
   const queryClient = useQueryClient();
@@ -80,11 +87,13 @@ const SaccoVehicles = () => {
       });
       setIsNewVehicleOpen(false);
       setNewVehicleData({
-        registration_number: "",
+        registrationNumber: "",
         capacity: 14,
         make: "",
         model: "",
         year: new Date().getFullYear(),
+        sacco_id: user?.sacco_id || "",
+        status: "active"
       });
     },
     onError: (error: Error) => {
@@ -163,6 +172,32 @@ const SaccoVehicles = () => {
     }));
   };
 
+  const handleStatusChange = (value: 'active' | 'maintenance' | 'retired') => {
+    setNewVehicleData(prev => ({
+      ...prev,
+      status: value
+    }));
+  };
+
+  const handleEditClick = (vehicle: Vehicle) => {
+    setSelectedVehicle(vehicle);
+    setNewVehicleData({
+      registrationNumber: vehicle.registrationNumber,
+      capacity: vehicle.capacity,
+      make: vehicle.make || "",
+      model: vehicle.model || "",
+      year: vehicle.year || new Date().getFullYear(),
+      sacco_id: vehicle.sacco_id,
+      status: vehicle.status || "active"
+    });
+    setIsEditVehicleOpen(true);
+  };
+
+  const handleAssignDriver = (vehicle: Vehicle) => {
+    setSelectedVehicleForDriver(vehicle);
+    setIsAssignDriverOpen(true);
+  };
+
   const filteredVehicles = vehicles.filter((vehicle) => 
     (vehicle.registrationNumber || '').toLowerCase().includes(searchQuery.toLowerCase())
   );
@@ -178,6 +213,18 @@ const SaccoVehicles = () => {
       default:
         return "outline";
     }
+  };
+
+  const getMakeModel = (vehicle: Vehicle) => {
+    const make = vehicle.make || 'Not specified';
+    const model = vehicle.model || 'Not specified';
+    return make === 'Not specified' && model === 'Not specified' 
+      ? 'Make/Model not specified'
+      : `${make} ${model}`;
+  };
+
+  const getYear = (year: number | null | undefined) => {
+    return year ? year.toString() : 'Year not specified';
   };
 
   return (
@@ -204,9 +251,9 @@ const SaccoVehicles = () => {
                   <Label htmlFor="registration_number">Registration Number</Label>
                   <Input
                     id="registration_number"
-                    name="registration_number"
+                    name="registrationNumber"
                     placeholder="KDG 123A"
-                    value={newVehicleData.registration_number}
+                    value={newVehicleData.registrationNumber}
                     onChange={handleInputChange}
                     required
                   />
@@ -263,6 +310,22 @@ const SaccoVehicles = () => {
                     />
                   </div>
                 </div>
+                <div className="grid gap-2">
+                  <Label htmlFor="status">Status</Label>
+                  <Select
+                    value={newVehicleData.status}
+                    onValueChange={(value: 'active' | 'maintenance' | 'retired') => handleStatusChange(value)}
+                  >
+                    <SelectTrigger id="status">
+                      <SelectValue placeholder="Select status" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="active">Active</SelectItem>
+                      <SelectItem value="maintenance">Maintenance</SelectItem>
+                      <SelectItem value="retired">Retired</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
               </div>
               <DialogFooter>
                 <Button
@@ -315,7 +378,6 @@ const SaccoVehicles = () => {
                     <TableHead>Reg Number</TableHead>
                     <TableHead>Make/Model</TableHead>
                     <TableHead>Year</TableHead>
-                    <TableHead>Capacity</TableHead>
                     <TableHead>Route</TableHead>
                     <TableHead>Status</TableHead>
                     <TableHead>Actions</TableHead>
@@ -327,10 +389,10 @@ const SaccoVehicles = () => {
                       <TableCell className="font-medium">
                         {vehicle.registrationNumber}
                       </TableCell>
-                      <TableCell>{`${vehicle.make} ${vehicle.model}`}</TableCell>
-                      <TableCell>{vehicle.year}</TableCell>
+                      <TableCell>{getMakeModel(vehicle)}</TableCell>
+                      <TableCell>{getYear(vehicle.year)}</TableCell>
                       <TableCell>{vehicle.capacity} seats</TableCell>
-                      <TableCell>{vehicle.routes || "Not assigned"}</TableCell>
+                      <TableCell>{vehicle.route || "Not assigned"}</TableCell>
                       <TableCell>
                         <Badge variant={getStatusBadgeVariant(vehicle.status)}>
                           {vehicle.status}
@@ -341,17 +403,7 @@ const SaccoVehicles = () => {
                           <Button
                             variant="outline"
                             size="sm"
-                            onClick={() => {
-                              setSelectedVehicle(vehicle);
-                              setNewVehicleData({
-                                registration_number: vehicle.registrationNumber,
-                                capacity: vehicle.capacity,
-                                make: vehicle.make,
-                                model: vehicle.model,
-                                year: vehicle.year,
-                              });
-                              setIsEditVehicleOpen(true);
-                            }}
+                            onClick={() => handleEditClick(vehicle)}
                           >
                             Edit
                           </Button>
@@ -361,6 +413,13 @@ const SaccoVehicles = () => {
                             onClick={() => handleDeleteVehicle(vehicle.id)}
                           >
                             Delete
+                          </Button>
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => handleAssignDriver(vehicle)}
+                          >
+                            Assign Driver
                           </Button>
                         </div>
                       </TableCell>
@@ -391,9 +450,9 @@ const SaccoVehicles = () => {
                 <Label htmlFor="registration_number">Registration Number</Label>
                 <Input
                   id="registration_number"
-                  name="registration_number"
+                  name="registrationNumber"
                   placeholder="KDG 123A"
-                  value={newVehicleData.registration_number}
+                  value={newVehicleData.registrationNumber}
                   onChange={handleInputChange}
                   required
                 />
@@ -450,6 +509,22 @@ const SaccoVehicles = () => {
                   />
                 </div>
               </div>
+              <div className="grid gap-2">
+                <Label htmlFor="status">Status</Label>
+                <Select
+                  value={newVehicleData.status}
+                  onValueChange={(value: 'active' | 'maintenance' | 'retired') => handleStatusChange(value)}
+                >
+                  <SelectTrigger id="status">
+                    <SelectValue placeholder="Select status" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="active">Active</SelectItem>
+                    <SelectItem value="maintenance">Maintenance</SelectItem>
+                    <SelectItem value="retired">Retired</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
             </div>
             <DialogFooter>
               <Button
@@ -466,6 +541,16 @@ const SaccoVehicles = () => {
           </form>
         </DialogContent>
       </Dialog>
+
+      <AssignDriverModal
+        vehicleId={selectedVehicleForDriver?.id || null}
+        open={isAssignDriverOpen}
+        onClose={() => {
+          setIsAssignDriverOpen(false);
+          setSelectedVehicleForDriver(null);
+        }}
+        vehicleRegistrationNumber={selectedVehicleForDriver?.registrationNumber}
+      />
     </div>
   );
 };

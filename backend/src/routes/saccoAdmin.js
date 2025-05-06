@@ -22,11 +22,20 @@ router.post('/drivers', authMiddleware(['sacco_admin']), (req, res) => saccoAdmi
 router.put('/drivers/:id', authMiddleware(['sacco_admin']), (req, res) => saccoAdminDriverController.updateDriver(req, res));
 router.delete('/drivers/:id', authMiddleware(['sacco_admin']), (req, res) => saccoAdminDriverController.deleteDriver(req, res));
 
-import SaccoAdminPaymentController from '../controllers/saccoAdminPaymentController.js';
-const saccoAdminPaymentController = new SaccoAdminPaymentController(pool);
-
 // SACCO Admin Vehicles
 router.get('/vehicles', authMiddleware(['sacco_admin']), (req, res) => saccoAdminVehicleController.getAllVehicles(req, res));
+router.post('/vehicles', authMiddleware(['sacco_admin']), (req, res) => saccoAdminVehicleController.createVehicle(req, res));
+router.put('/vehicles/:id', authMiddleware(['sacco_admin']), (req, res) => saccoAdminVehicleController.updateVehicle(req, res));
+router.delete('/vehicles/:id', authMiddleware(['sacco_admin']), (req, res) => saccoAdminVehicleController.deleteVehicle(req, res));
+router.get('/vehicles/:id', authMiddleware(['sacco_admin']), (req, res) => saccoAdminVehicleController.getVehicleDetails(req, res));
+
+// Vehicle-Driver Assignment Routes
+router.get('/vehicles/:vehicleId/available-drivers', authMiddleware(['sacco_admin']), (req, res) => saccoAdminVehicleController.getAvailableDrivers(req, res));
+router.post('/vehicles/:vehicleId/assign-driver', authMiddleware(['sacco_admin']), (req, res) => saccoAdminVehicleController.assignDriver(req, res));
+router.post('/vehicles/:vehicleId/unassign-driver', authMiddleware(['sacco_admin']), (req, res) => saccoAdminVehicleController.unassignDriver(req, res));
+
+import SaccoAdminPaymentController from '../controllers/saccoAdminPaymentController.js';
+const saccoAdminPaymentController = new SaccoAdminPaymentController(pool);
 
 // SACCO Admin Payments
 router.get('/payments', authMiddleware(['sacco_admin']), (req, res) => saccoAdminPaymentController.getPayments(req, res));

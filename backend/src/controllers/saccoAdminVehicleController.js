@@ -40,16 +40,40 @@ class SaccoAdminVehicleController {
         SELECT 
           v.*,
           s.name as sacco_name,
+          s.registration_number as sacco_registration,
+          s.contact_email as sacco_email,
+          s.contact_phone as sacco_phone,
+          s.status as sacco_status,
           GROUP_CONCAT(
             DISTINCT CONCAT(r.start_location, ' - ', r.end_location)
             SEPARATOR ', '
-          ) as route
+          ) as route,
+          d.id as driver_id,
+          u.name as driver_name
         FROM vehicles v
-        LEFT JOIN saccos s ON v.sacco_id = s.id
+        INNER JOIN saccos s ON v.sacco_id = s.id
         LEFT JOIN trips t ON v.id = t.vehicle_id
         LEFT JOIN routes r ON t.route_id = r.id
+        LEFT JOIN drivers d ON d.vehicle_id = v.id AND d.status = 'active'
+        LEFT JOIN users u ON d.user_id = u.id
         WHERE v.sacco_id = ?
-        GROUP BY v.id, s.id, s.name
+        GROUP BY 
+          v.id, 
+          v.registration_number, 
+          v.make, 
+          v.model, 
+          v.year, 
+          v.capacity, 
+          v.status, 
+          v.last_maintenance_date,
+          s.id, 
+          s.name, 
+          s.registration_number, 
+          s.contact_email, 
+          s.contact_phone, 
+          s.status,
+          d.id,
+          u.name
         ORDER BY v.registration_number ASC
       `;
 
@@ -64,10 +88,19 @@ class SaccoAdminVehicleController {
         year: vehicle.year || null,
         capacity: vehicle.capacity || 0,
         status: vehicle.status || 'inactive',
-        lastMaintenanceDate: vehicle.last_maintenance_date ? 
-          new Date(vehicle.last_maintenance_date).toISOString() : null,
-        saccoName: vehicle.sacco_name || 'Unknown',
-        routes: vehicle.route || ''
+        sacco: {
+          id: saccoId,
+          name: vehicle.sacco_name || 'Unknown',
+          registrationNumber: vehicle.sacco_registration || '',
+          email: vehicle.sacco_email || '',
+          phone: vehicle.sacco_phone || '',
+          status: vehicle.sacco_status || 'inactive'
+        },
+        route: vehicle.route || '',
+        driver: vehicle.driver_id ? {
+          id: vehicle.driver_id,
+          name: vehicle.driver_name
+        } : null
       }));
 
       res.json(transformedVehicles);
@@ -406,6 +439,149 @@ class SaccoAdminVehicleController {
       res.status(500).json({ 
         message: 'Error fetching maintenance logs',
         error: process.env.NODE_ENV === 'development' ? error.message : undefined
+      });
+    }
+  }
+
+  async assignDriver(req, res) {
+    try {
+      const userId = req.user.id;
+      const saccoId = await this.getSaccoIdFromUserId(userId);
+
+      if (!saccoId) {
+        return res.status(403).json({ message: 'You do not manage any SACCO' });
+      }
+
+      const { vehicleId } = req.params;
+      const { driverId } = req.body;
+
+      // Verify vehicle belongs to SACCO
+      const [vehicle] = await this.pool.query(
+        'SELECT id, status FROM vehicles WHERE id = ? AND sacco_id = ?',
+        [vehicleId, saccoId]
+      );
+
+      if (vehicle.length === 0) {
+        return res.status(404).json({ message: 'Vehicle not found or access denied' });
+      }
+
+      if (vehicle[0].status !== 'active') {
+        return res.status(400).json({ message: 'Can only assign drivers to active vehicles' });
+      }
+
+      // Verify driver belongs to SACCO and is active
+      const [driver] = await this.pool.query(
+        'SELECT id, status, vehicle_id FROM drivers WHERE id = ? AND sacco_id = ?',
+        [driverId, saccoId]
+      );
+
+      if (driver.length === 0) {
+        return res.status(404).json({ message: 'Driver not found or access denied' });
+      }
+
+      if (driver[0].status !== 'active') {
+        return res.status(400).json({ message: 'Can only assign active drivers' });
+      }
+
+      if (driver[0].vehicle_id) {
+        return res.status(400).json({ message: 'Driver is already assigned to another vehicle' });
+      }
+
+      // Check if vehicle already has an active driver
+      const [currentDriver] = await this.pool.query(
+        'SELECT id FROM drivers WHERE vehicle_id = ? AND status = "active"',
+        [vehicleId]
+      );
+
+      if (currentDriver.length > 0) {
+        return res.status(400).json({ message: 'Vehicle already has an assigned driver' });
+      }
+
+      // Assign driver to vehicle
+      await this.pool.query(
+        'UPDATE drivers SET vehicle_id = ? WHERE id = ?',
+        [vehicleId, driverId]
+      );
+
+      res.json({ message: 'Driver assigned successfully' });
+    } catch (error) {
+      console.error('[SaccoAdminVehicleController] Error assigning driver:', error);
+      res.status(500).json({ 
+        message: 'Error assigning driver',
+        details: process.env.NODE_ENV === 'development' ? error.message : undefined
+      });
+    }
+  }
+
+  async unassignDriver(req, res) {
+    try {
+      const userId = req.user.id;
+      const saccoId = await this.getSaccoIdFromUserId(userId);
+
+      if (!saccoId) {
+        return res.status(403).json({ message: 'You do not manage any SACCO' });
+      }
+
+      const { vehicleId } = req.params;
+
+      // Verify vehicle belongs to SACCO
+      const [vehicle] = await this.pool.query(
+        'SELECT id FROM vehicles WHERE id = ? AND sacco_id = ?',
+        [vehicleId, saccoId]
+      );
+
+      if (vehicle.length === 0) {
+        return res.status(404).json({ message: 'Vehicle not found or access denied' });
+      }
+
+      // End current assignment
+      await this.pool.query(
+        `UPDATE drivers 
+         SET vehicle_id = NULL 
+         WHERE vehicle_id = ? AND sacco_id = ?`,
+        [vehicleId, saccoId]
+      );
+
+      res.json({ message: 'Driver unassigned successfully' });
+    } catch (error) {
+      console.error('[SaccoAdminVehicleController] Error unassigning driver:', error);
+      res.status(500).json({ 
+        message: 'Error unassigning driver',
+        details: process.env.NODE_ENV === 'development' ? error.message : undefined
+      });
+    }
+  }
+
+  async getAvailableDrivers(req, res) {
+    try {
+      const userId = req.user.id;
+      const saccoId = await this.getSaccoIdFromUserId(userId);
+
+      if (!saccoId) {
+        return res.status(403).json({ message: 'You do not manage any SACCO' });
+      }
+
+      // Get drivers who are active and not assigned to any vehicle
+      const [drivers] = await this.pool.query(
+        `SELECT 
+          d.id,
+          u.name,
+          d.license_number,
+          d.license_expiry
+        FROM drivers d
+        INNER JOIN users u ON d.user_id = u.id
+        WHERE d.sacco_id = ? 
+        AND d.status = 'active'
+        AND d.vehicle_id IS NULL`,
+        [saccoId]
+      );
+
+      res.json(drivers);
+    } catch (error) {
+      console.error('[SaccoAdminVehicleController] Error getting available drivers:', error);
+      res.status(500).json({ 
+        message: 'Error fetching available drivers',
+        details: process.env.NODE_ENV === 'development' ? error.message : undefined
       });
     }
   }

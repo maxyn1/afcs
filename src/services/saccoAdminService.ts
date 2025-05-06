@@ -66,15 +66,21 @@ class SaccoAdminService {
   }
 
   async deleteDriver(id: string): Promise<void> {
-    const response = await api.delete(`/sacco-admin/drivers/${id}`);
+    await api.delete(`/sacco-admin/drivers/${id}`);
+  }
+
+  async createVehicle(vehicleData: Partial<Vehicle>): Promise<Vehicle> {
+    const response = await api.post('/sacco-admin/vehicles', vehicleData);
     return response.data;
   }
 
-  async assignVehicle(driverId: string, vehicleId: number): Promise<void> {
-    const response = await api.put(`/sacco-admin/drivers/${driverId}/assign-vehicle`, {
-      vehicleId
-    });
+  async updateVehicle(id: number, vehicleData: Partial<Vehicle>): Promise<Vehicle> {
+    const response = await api.put(`/sacco-admin/vehicles/${id}`, vehicleData);
     return response.data;
+  }
+
+  async deleteVehicle(id: number): Promise<void> {
+    await api.delete(`/sacco-admin/vehicles/${id}`);
   }
 
   async createRoute(routeData: Partial<Route>): Promise<Route> {
@@ -101,6 +107,20 @@ class SaccoAdminService {
     };
     const response = await api.put(`/sacco-admin/routes/${id}`, payload);
     return response.data;
+  }
+
+  // Driver assignment methods
+  async getAvailableDrivers(vehicleId: number): Promise<Driver[]> {
+    const response = await api.get(`/sacco-admin/vehicles/${vehicleId}/available-drivers`);
+    return response.data;
+  }
+
+  async assignDriver(vehicleId: number, driverId: number): Promise<void> {
+    await api.post(`/sacco-admin/vehicles/${vehicleId}/assign-driver`, { driverId });
+  }
+
+  async unassignDriver(vehicleId: number): Promise<void> {
+    await api.post(`/sacco-admin/vehicles/${vehicleId}/unassign-driver`);
   }
 
   async generateReport(type: 'daily' | 'weekly' | 'monthly', date?: string): Promise<any> {

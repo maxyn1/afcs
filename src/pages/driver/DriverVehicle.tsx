@@ -1,4 +1,3 @@
-
 import { useQuery } from "@tanstack/react-query";
 import driverService from "@/services/driverService";
 import {
@@ -28,7 +27,7 @@ const DriverVehicle = () => {
   
   const { data: vehicle, isLoading, error } = useQuery({
     queryKey: ['driverVehicle'],
-    queryFn: driverService.getVehicle,
+    queryFn: driverService.getVehicleInfo,
   });
   
   const updateStatusMutation = useMutation({

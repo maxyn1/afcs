@@ -1,8 +1,21 @@
 import { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import saccoAdminService from "@/services/saccoAdminService";
-import vehicleService, { Vehicle } from "@/services/vehicleService";
+import vehicleService from "@/services/vehicleService";
 import { useAuth } from "@/contexts/AuthContext";
+
+interface Vehicle {
+  id: number;
+  registrationNumber: string;
+  capacity: number;
+  make: string;
+  model: string;
+  year: number;
+  saccoName: string;
+  status: string;
+  routes?: string;
+}
+
 import {
   Card,
   CardContent,
@@ -24,13 +37,6 @@ import {
   DialogTrigger,
 } from "@/components/ui/dialog";
 import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
-import {
   Table,
   TableBody,
   TableCell,
@@ -38,7 +44,7 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { Car, Plus, Search } from "lucide-react";
+import { Plus, Search } from "lucide-react";
 import { toast } from "@/hooks/use-toast";
 
 const SaccoVehicles = () => {
@@ -49,47 +55,41 @@ const SaccoVehicles = () => {
   const [selectedVehicle, setSelectedVehicle] = useState<Vehicle | null>(null);
   const [newVehicleData, setNewVehicleData] = useState({
     registration_number: "",
-    capacity: "14",
+    capacity: 14,
     make: "",
     model: "",
-    year: new Date().getFullYear().toString(),
-    sacco_id: user?.saccoId || "",
+    year: new Date().getFullYear(),
   });
 
   const queryClient = useQueryClient();
 
-  const { data, isLoading } = useQuery({
-    queryKey: ['saccoVehicles', user?.saccoId],
+  const { data: vehicles = [], isLoading } = useQuery({
+    queryKey: ['vehicles'],
     queryFn: saccoAdminService.getVehicles,
-    enabled: !!user?.saccoId,
   });
 
   const createVehicleMutation = useMutation({
     mutationFn: (vehicleData: Partial<Vehicle>) => {
-      return vehicleService.createVehicle({
-        ...vehicleData,
-        sacco_id: user?.saccoId || "",
-      });
+      return vehicleService.createVehicle(vehicleData);
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['saccoVehicles'] });
+      queryClient.invalidateQueries({ queryKey: ['vehicles'] });
       toast({
-        title: "Vehicle created",
-        description: "The vehicle has been registered successfully.",
+        title: "Success",
+        description: "Vehicle has been registered successfully.",
       });
       setIsNewVehicleOpen(false);
       setNewVehicleData({
         registration_number: "",
-        capacity: "14",
+        capacity: 14,
         make: "",
         model: "",
-        year: new Date().getFullYear().toString(),
-        sacco_id: user?.saccoId || "",
+        year: new Date().getFullYear(),
       });
     },
-    onError: (error) => {
+    onError: (error: Error) => {
       toast({
-        title: "Registration failed",
+        title: "Error",
         description: error.message || "Failed to register vehicle. Please try again.",
         variant: "destructive",
       });
@@ -98,12 +98,9 @@ const SaccoVehicles = () => {
 
   const updateVehicleMutation = useMutation({
     mutationFn: ({ id, data }: { id: number; data: Partial<Vehicle> }) =>
-      vehicleService.updateVehicle(id, {
-        ...data,
-        sacco_id: user?.saccoId || "",
-      }),
+      vehicleService.updateVehicle(id, data),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['saccoVehicles'] });
+      queryClient.invalidateQueries({ queryKey: ['vehicles'] });
       toast({
         title: "Success",
         description: "Vehicle updated successfully",
@@ -111,9 +108,9 @@ const SaccoVehicles = () => {
       setIsEditVehicleOpen(false);
       setSelectedVehicle(null);
     },
-    onError: (error) => {
+    onError: (error: Error) => {
       toast({
-        title: "Update failed",
+        title: "Error",
         description: error.message || "Failed to update vehicle",
         variant: "destructive",
       });
@@ -123,15 +120,15 @@ const SaccoVehicles = () => {
   const deleteVehicleMutation = useMutation({
     mutationFn: (id: number) => vehicleService.deleteVehicle(id),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['saccoVehicles'] });
+      queryClient.invalidateQueries({ queryKey: ['vehicles'] });
       toast({
         title: "Success",
         description: "Vehicle deleted successfully",
       });
     },
-    onError: (error) => {
+    onError: (error: Error) => {
       toast({
-        title: "Delete failed",
+        title: "Error",
         description: error.message || "Failed to delete vehicle",
         variant: "destructive",
       });
@@ -140,12 +137,7 @@ const SaccoVehicles = () => {
 
   const handleNewVehicleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    createVehicleMutation.mutate({
-      ...newVehicleData,
-      capacity: parseInt(newVehicleData.capacity),
-      year: parseInt(newVehicleData.year),
-      sacco_id: user?.saccoId || "",
-    });
+    createVehicleMutation.mutate(newVehicleData);
   };
 
   const handleEditVehicleSubmit = (e: React.FormEvent) => {
@@ -154,11 +146,7 @@ const SaccoVehicles = () => {
 
     updateVehicleMutation.mutate({
       id: selectedVehicle.id,
-      data: {
-        ...newVehicleData,
-        capacity: parseInt(newVehicleData.capacity),
-        year: parseInt(newVehicleData.year),
-      },
+      data: newVehicleData,
     });
   };
 
@@ -169,13 +157,14 @@ const SaccoVehicles = () => {
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { name, value } = e.target;
-    setNewVehicleData((prev) => ({ ...prev, [name]: value }));
+    setNewVehicleData((prev) => ({ 
+      ...prev, 
+      [name]: name === 'capacity' || name === 'year' ? parseInt(value) : value 
+    }));
   };
 
-  const vehicles = data || [];
-
-  const filteredVehicles = vehicles.filter((vehicle: Vehicle) => 
-    vehicle.registration_number.toLowerCase().includes(searchQuery.toLowerCase())
+  const filteredVehicles = vehicles.filter((vehicle) => 
+    (vehicle.registrationNumber || '').toLowerCase().includes(searchQuery.toLowerCase())
   );
 
   const getStatusBadgeVariant = (status: string): "default" | "secondary" | "outline" | "destructive" => {
@@ -324,20 +313,24 @@ const SaccoVehicles = () => {
                 <TableHeader>
                   <TableRow>
                     <TableHead>Reg Number</TableHead>
-                    <TableHead>Capacity</TableHead>
                     <TableHead>Make/Model</TableHead>
+                    <TableHead>Year</TableHead>
+                    <TableHead>Capacity</TableHead>
                     <TableHead>Route</TableHead>
                     <TableHead>Status</TableHead>
                     <TableHead>Actions</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {filteredVehicles.map((vehicle: Vehicle) => (
+                  {filteredVehicles.map((vehicle) => (
                     <TableRow key={vehicle.id}>
-                      <TableCell className="font-medium">{vehicle.registration_number}</TableCell>
+                      <TableCell className="font-medium">
+                        {vehicle.registrationNumber}
+                      </TableCell>
+                      <TableCell>{`${vehicle.make} ${vehicle.model}`}</TableCell>
+                      <TableCell>{vehicle.year}</TableCell>
                       <TableCell>{vehicle.capacity} seats</TableCell>
-                      <TableCell>{vehicle.sacco_name}</TableCell>
-                      <TableCell>{vehicle.route || "Not assigned"}</TableCell>
+                      <TableCell>{vehicle.routes || "Not assigned"}</TableCell>
                       <TableCell>
                         <Badge variant={getStatusBadgeVariant(vehicle.status)}>
                           {vehicle.status}
@@ -351,20 +344,16 @@ const SaccoVehicles = () => {
                             onClick={() => {
                               setSelectedVehicle(vehicle);
                               setNewVehicleData({
-                                registration_number: vehicle.registration_number,
-                                capacity: vehicle.capacity.toString(),
+                                registration_number: vehicle.registrationNumber,
+                                capacity: vehicle.capacity,
                                 make: vehicle.make,
                                 model: vehicle.model,
-                                year: vehicle.year.toString(),
-                                sacco_id: vehicle.sacco_id,
+                                year: vehicle.year,
                               });
                               setIsEditVehicleOpen(true);
                             }}
                           >
                             Edit
-                          </Button>
-                          <Button variant="outline" size="sm">
-                            Assign Route
                           </Button>
                           <Button
                             variant="destructive"

@@ -47,7 +47,10 @@ const SaccoAdminLayout: React.FC<SaccoAdminLayoutProps> = ({ children }) => {
             <Link to="/sacco-admin" className="flex items-center">
               <span className="font-bold text-xl text-primary hidden sm:inline">SACCO Admin Dashboard</span>
             </Link>
-          </div>
+            <span className="text-gray-500 text-sm ml-4 hidden md:inline">
+              
+            </span>
+            </div>
           
           <div className="hidden md:flex items-center space-x-6">
             {navItems.map((item) => (

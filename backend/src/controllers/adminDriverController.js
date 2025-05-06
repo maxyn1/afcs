@@ -12,15 +12,19 @@ class AdminDriverController {
       const query = `
         SELECT 
           d.id,
+          d.license_number as licenseNumber,
+          d.license_expiry as licenseExpiry,
+          d.driver_rating as rating,
+          d.total_trips as totalTrips,
+          d.status as driverStatus,
           u.name,
           u.phone,
           u.email,
-          d.license_number as licenseNumber,
-          d.license_expiry as licenseExpiry,
-          COALESCE(d.driver_rating, 0) as rating,
-          COALESCE(d.total_trips, 0) as totalTrips,
-          s.name as saccoName,
-          u.status
+          u.status as accountStatus,
+          u.address,
+          u.date_of_birth,
+          u.emergency_contact,
+          s.name as saccoName
         FROM users u
         JOIN drivers d ON u.id = d.user_id
         LEFT JOIN saccos s ON d.sacco_id = s.id
@@ -44,7 +48,11 @@ class AdminDriverController {
         rating: Number(driver.rating) || 0,
         totalTrips: Number(driver.totalTrips) || 0,
         saccoName: driver.saccoName || 'Unassigned',
-        status: driver.status || 'inactive'
+        status: driver.accountStatus || 'inactive',
+        driverStatus: driver.driverStatus || 'inactive',
+        address: driver.address || '',
+        dateOfBirth: driver.date_of_birth ? new Date(driver.date_of_birth).toISOString() : null,
+        emergencyContact: driver.emergency_contact || ''
       }));
 
       res.json(transformedDrivers);
@@ -62,7 +70,7 @@ class AdminDriverController {
       const { id } = req.params;
       console.log('[AdminDriverController] Getting details for driver:', id);
 
-      // Get current assigned vehicle (if any) from trips
+      // Get current assigned vehicle (if any)
       const vehicleQuery = `
         SELECT 
           v.id,
@@ -86,23 +94,26 @@ class AdminDriverController {
       const query = `
         SELECT 
           d.id,
-          u.name,
-          u.email,
-          u.phone,
           d.license_number,
           d.license_expiry,
           d.driver_rating,
           d.total_trips,
+          d.status as driver_status,
+          u.name,
+          u.email,
+          u.phone,
+          u.status as account_status,
+          u.address,
+          u.date_of_birth,
+          u.emergency_contact,
           s.name as sacco_name,
-          s.id as sacco_id,
-          u.status
+          s.id as sacco_id
         FROM drivers d
         JOIN users u ON d.user_id = u.id
         LEFT JOIN saccos s ON d.sacco_id = s.id
         WHERE d.id = ?
       `;
 
-      console.log('[AdminDriverController] Executing query:', query);
       const [[driver]] = await this.pool.query(query, [id]);
       
       if (!driver) {
@@ -110,9 +121,7 @@ class AdminDriverController {
         return res.status(404).json({ message: 'Driver not found' });
       }
 
-      console.log('[AdminDriverController] Found driver:', driver);
-
-      // Get past trip history
+      // Get trip history
       const tripQuery = `
         SELECT 
           t.id as trip_id,
@@ -144,7 +153,11 @@ class AdminDriverController {
         totalTrips: Number(driver.total_trips) || 0,
         saccoName: driver.sacco_name || 'Unassigned',
         saccoId: driver.sacco_id,
-        status: driver.status,
+        status: driver.account_status,
+        driverStatus: driver.driver_status,
+        address: driver.address,
+        dateOfBirth: driver.date_of_birth ? new Date(driver.date_of_birth).toISOString() : null,
+        emergencyContact: driver.emergency_contact,
         vehicle: currentVehicle ? {
           id: currentVehicle.id,
           registrationNumber: currentVehicle.registration_number,
@@ -164,7 +177,6 @@ class AdminDriverController {
         }))
       };
 
-      console.log('[AdminDriverController] Transformed response:', transformedDriver);
       res.json(transformedDriver);
     } catch (error) {
       console.error('[AdminDriverController] Error fetching driver details:', error);
@@ -178,43 +190,50 @@ class AdminDriverController {
   async createDriver(req, res) {
     try {
       console.log('Creating a new driver...');
-      const { fullName, phone, email, licenseNumber, licenseExpiry, saccoId } = req.body;
-      const userId = crypto.randomUUID();
-      // Set password to licenseNumber
-      const passwordHash = await bcrypt.hash(licenseNumber, 10);
+      const { 
+        fullName, 
+        phone, 
+        email, 
+        licenseNumber, 
+        licenseExpiry, 
+        saccoId,
+        address,
+        dateOfBirth,
+        emergencyContact
+      } = req.body;
+      
+      // Validate required fields
+      if (!fullName || !phone || !email || !licenseNumber || !licenseExpiry || !saccoId) {
+        return res.status(400).json({ message: 'Missing required fields' });
+      }
 
-      console.log('Generated userId:', userId);
-      console.log('Generated password hash:', passwordHash);
+      const userId = crypto.randomUUID();
+      const upperLicenseNumber = licenseNumber.toUpperCase();
+      const passwordHash = await bcrypt.hash(upperLicenseNumber, 10);
 
       const connection = await this.pool.getConnection();
       
       try {
         await connection.beginTransaction();
-        console.log('Starting transaction...');
         
-        // Create user account first with required fields based on schema
+        // Create user account with user-specific fields
         await connection.query(
-          'INSERT INTO users (id, name, email, phone, password_hash, role, status) VALUES (?, ?, ?, ?, ?, ?, ?)',
-          [userId, fullName, email, phone, passwordHash, 'driver', 'active']
+          'INSERT INTO users (id, name, email, phone, password_hash, role, status, address, date_of_birth, emergency_contact) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
+          [userId, fullName, email, phone, passwordHash, 'driver', 'active', address || null, dateOfBirth || null, emergencyContact || null]
         );
-
-        console.log('User account created.');
-
-        // Then create driver record with required fields based on schema
+        
+        // Create driver record with driver-specific fields
         const [result] = await connection.query(
-          'INSERT INTO drivers (user_id, sacco_id, license_number, license_expiry) VALUES (?, ?, ?, ?)',
-          [userId, saccoId, licenseNumber, licenseExpiry]
+          'INSERT INTO drivers (user_id, sacco_id, license_number, license_expiry, driver_rating, total_trips, status) VALUES (?, ?, ?, ?, ?, ?, ?)',
+          [userId, saccoId, licenseNumber, licenseExpiry, 0.00, 0, 'active']
         );
-
-        console.log('Driver record created with ID:', result.insertId);
 
         await connection.commit();
-        console.log('Transaction committed.');
 
         res.status(201).json({
           message: 'Driver registered successfully',
           driverId: result.insertId,
-          defaultPassword: licenseNumber // In production, send this via SMS instead
+          defaultPassword: upperLicenseNumber
         });
       } catch (error) {
         await connection.rollback();
@@ -240,16 +259,23 @@ class AdminDriverController {
     try {
       console.log('Updating driver...');
       const { id } = req.params;
-      const { fullName, email, phone, licenseNumber, licenseExpiry, saccoId, status } = req.body;
-
-      console.log('Driver ID:', id);
-      console.log('Update details:', { fullName, email, phone, licenseNumber, licenseExpiry, saccoId, status });
+      const { 
+        fullName, 
+        email, 
+        phone, 
+        licenseNumber, 
+        licenseExpiry, 
+        saccoId, 
+        status,
+        address,
+        dateOfBirth,
+        emergencyContact
+      } = req.body;
 
       const connection = await this.pool.getConnection();
       
       try {
         await connection.beginTransaction();
-        console.log('Starting transaction...');
 
         // First get the user_id associated with this driver
         const [[driverData]] = await connection.query(
@@ -263,24 +289,19 @@ class AdminDriverController {
 
         const userId = driverData.user_id;
 
-        // Update user details
+        // Update user-specific fields in users table
         await connection.query(
-          'UPDATE users SET name = ?, email = ?, phone = ?, status = ? WHERE id = ?',
-          [fullName, email, phone, status, userId]
+          'UPDATE users SET name = ?, email = ?, phone = ?, status = ?, address = ?, date_of_birth = ?, emergency_contact = ? WHERE id = ?',
+          [fullName, email, phone, status, address, dateOfBirth, emergencyContact, userId]
         );
 
-        console.log('User details updated.');
-
-        // Update driver details
+        // Update driver-specific fields in drivers table
         await connection.query(
           'UPDATE drivers SET license_number = ?, license_expiry = ?, sacco_id = ? WHERE id = ?',
           [licenseNumber, licenseExpiry, saccoId, id]
         );
 
-        console.log('Driver details updated.');
-
         await connection.commit();
-        console.log('Transaction committed.');
 
         res.json({ message: 'Driver updated successfully' });
       } catch (error) {
@@ -308,8 +329,6 @@ class AdminDriverController {
       console.log('Deactivating driver...');
       const { id } = req.params;
 
-      console.log('Driver ID:', id);
-
       // First get the user_id associated with this driver
       const [[driverData]] = await this.pool.query(
         'SELECT user_id FROM drivers WHERE id = ?',
@@ -322,9 +341,14 @@ class AdminDriverController {
 
       const userId = driverData.user_id;
 
-      // Instead of deleting, just deactivate the user account
+      // Instead of deleting, just deactivate both accounts
       await this.pool.query(
         'UPDATE users SET status = ? WHERE id = ?',
+        ['inactive', userId]
+      );
+
+      await this.pool.query(
+        'UPDATE drivers SET status = ? WHERE user_id = ?',
         ['inactive', userId]
       );
 

@@ -3,9 +3,35 @@ class SaccoAdminDashboardController {
     this.pool = pool;
   }
 
+  // Helper method to get saccoId from userId
+  async getSaccoIdFromUserId(userId) {
+    try {
+      // Query the saccos table to find the sacco managed by this user
+      const [rows] = await this.pool.query(
+        'SELECT id FROM saccos WHERE managed_by = ?',
+        [userId]
+      );
+
+      if (!rows || rows.length === 0) {
+        return null; // User does not manage any SACCO
+      }
+
+      return rows[0].id;
+    } catch (error) {
+      console.error('[SaccoAdminVehicleController] Error getting saccoId from userId:', error);
+      throw error;
+    }
+  }
+
   async getDashboardStats(req, res) {
     try {
-      const saccoId = req.user.sacco_id; // Assuming SACCO ID is available in the user object
+
+      const userId = req.user.id; // Assuming user ID is available in the request object
+      if (!userId) {
+        return res.status(400).json({ message: 'User ID is required' });
+      }
+
+      const saccoId = await this.getSaccoIdFromUserId(userId); // Assuming SACCO ID is available in the user object
 
       const [[driverStats], [vehicleStats], [routeStats], [revenueStats], [tripStats], [passengerStats]] = await Promise.all([
         this.pool.query(`

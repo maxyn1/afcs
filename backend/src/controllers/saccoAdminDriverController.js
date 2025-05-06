@@ -7,25 +7,58 @@ class SaccoAdminDriverController {
     console.log('[SaccoAdminDriverController] Initialized with pool:', !!pool);
   }
 
+  // Helper method to get saccoId from userId
+  async getSaccoIdFromUserId(userId) {
+    try {
+      // Query the saccos table to find the sacco managed by this user
+      const [rows] = await this.pool.query(
+        'SELECT id FROM saccos WHERE managed_by = ?',
+        [userId]
+      );
+
+      if (!rows || rows.length === 0) {
+        return null; // User does not manage any SACCO
+      }
+
+      return rows[0].id;
+    } catch (error) {
+      console.error('[SaccoAdminDriverController] Error getting saccoId from userId:', error);
+      throw error;
+    }
+  }
+
   async getAllDrivers(req, res) {
     try {
-      const saccoId = req.user.saccoId; // Assuming saccoId is in user object from auth middleware
+      // Get the userId from the authentication context
+      const userId = req.user.id;
+      
+      // Get the saccoId for this user
+      const saccoId = await this.getSaccoIdFromUserId(userId);
+
+      if (!saccoId) {
+        return res.status(403).json({ message: 'You do not manage any SACCO' });
+      }
+
       const query = `
         SELECT 
           d.id,
+          d.license_number as licenseNumber,
+          d.license_expiry as licenseExpiry,
+          d.driver_rating as rating,
+          d.total_trips as totalTrips,
+          d.status as driverStatus,
           u.name,
           u.phone,
           u.email,
-          d.license_number as licenseNumber,
-          d.license_expiry as licenseExpiry,
-          COALESCE(d.driver_rating, 0) as rating,
-          COALESCE(d.total_trips, 0) as totalTrips,
-          s.name as saccoName,
-          u.status
-        FROM users u
-        JOIN drivers d ON u.id = d.user_id
+          u.status as accountStatus,
+          u.address,
+          u.date_of_birth,
+          u.emergency_contact,
+          s.name as saccoName
+        FROM drivers d
+        JOIN users u ON d.user_id = u.id
         LEFT JOIN saccos s ON d.sacco_id = s.id
-        WHERE u.role = 'driver' AND d.sacco_id = ?
+        WHERE d.sacco_id = ?
         ORDER BY u.name ASC
       `;
 
@@ -45,7 +78,11 @@ class SaccoAdminDriverController {
         rating: Number(driver.rating) || 0,
         totalTrips: Number(driver.totalTrips) || 0,
         saccoName: driver.saccoName || 'Unassigned',
-        status: driver.status || 'inactive'
+        status: driver.accountStatus || 'inactive',
+        driverStatus: driver.driverStatus || 'inactive',
+        address: driver.address || '',
+        dateOfBirth: driver.date_of_birth ? new Date(driver.date_of_birth).toISOString() : null,
+        emergencyContact: driver.emergency_contact || ''
       }));
 
       res.json(transformedDrivers);
@@ -61,40 +98,60 @@ class SaccoAdminDriverController {
   async createDriver(req, res) {
     try {
       console.log('[SaccoAdminDriverController] Creating a new driver...');
-      const saccoId = req.user.saccoId; // sacco admin's saccoId from auth middleware
-      const { fullName, phone, email, licenseNumber, licenseExpiry, address, dateOfBirth, emergencyContact } = req.body;
-      const userId = crypto.randomUUID();
-      const passwordHash = await bcrypt.hash(licenseNumber, 10);
+      
+      // Get the userId from the authentication context
+      const userId = req.user.id;
+      
+      // Get the saccoId for this user
+      const saccoId = await this.getSaccoIdFromUserId(userId);
+
+      if (!saccoId) {
+        return res.status(403).json({ message: 'You do not manage any SACCO' });
+      }
+      
+      const { 
+        fullName, 
+        phone, 
+        email, 
+        licenseNumber, 
+        licenseExpiry, 
+        address, 
+        dateOfBirth, 
+        emergencyContact 
+      } = req.body;
+      
+      // Validate required fields
+      if (!fullName || !phone || !email || !licenseNumber || !licenseExpiry) {
+        return res.status(400).json({ message: 'Missing required fields' });
+      }
+
+      const newUserId = crypto.randomUUID();
+      const upperLicenseNumber = licenseNumber.toUpperCase();
+      const passwordHash = await bcrypt.hash(upperLicenseNumber, 10);
 
       const connection = await this.pool.getConnection();
       
       try {
         await connection.beginTransaction();
-        console.log('Starting transaction...');
         
-        // Create user account
+        // Create user account with user-specific fields
         await connection.query(
-          'INSERT INTO users (id, name, email, phone, password_hash, role, status) VALUES (?, ?, ?, ?, ?, ?, ?)',
-          [userId, fullName, email, phone, passwordHash, 'driver', 'active']
+          'INSERT INTO users (id, name, email, phone, password_hash, role, status, address, date_of_birth, emergency_contact) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
+          [newUserId, fullName, email, phone, passwordHash, 'driver', 'active', address || null, dateOfBirth || null, emergencyContact || null]
         );
 
-        console.log('User account created.');
-
-        // Create driver record with saccoId from sacco admin context
+        // Create driver record with driver-specific fields
         const [result] = await connection.query(
-          'INSERT INTO drivers (user_id, sacco_id, license_number, license_expiry, address, date_of_birth, emergency_contact) VALUES (?, ?, ?, ?, ?, ?, ?)',
-          [userId, saccoId, licenseNumber, licenseExpiry, address, dateOfBirth, emergencyContact]
+          'INSERT INTO drivers (user_id, sacco_id, license_number, license_expiry, driver_rating, total_trips, status) VALUES (?, ?, ?, ?, ?, ?, ?)',
+          [newUserId, saccoId, licenseNumber, licenseExpiry, 0.00, 0, 'active']
         );
-
-        console.log('Driver record created with ID:', result.insertId);
 
         await connection.commit();
-        console.log('Transaction committed.');
 
         res.status(201).json({
           message: 'Driver registered successfully',
           driverId: result.insertId,
-          defaultPassword: licenseNumber // In production, send this via SMS instead
+          defaultPassword: upperLicenseNumber
         });
       } catch (error) {
         await connection.rollback();
@@ -113,16 +170,35 @@ class SaccoAdminDriverController {
 
   async updateDriver(req, res) {
     try {
-      const saccoId = req.user.saccoId;
+      // Get the userId from the authentication context
+      const userId = req.user.id;
+      
+      // Get the saccoId for this user
+      const saccoId = await this.getSaccoIdFromUserId(userId);
+
+      if (!saccoId) {
+        return res.status(403).json({ message: 'You do not manage any SACCO' });
+      }
+      
       const driverId = req.params.id;
-      const { fullName, phone, email, licenseNumber, licenseExpiry, address, dateOfBirth, emergencyContact, status } = req.body;
+      const { 
+        fullName, 
+        phone, 
+        email, 
+        licenseNumber, 
+        licenseExpiry, 
+        address, 
+        dateOfBirth, 
+        emergencyContact, 
+        status 
+      } = req.body;
 
       const connection = await this.pool.getConnection();
 
       try {
         await connection.beginTransaction();
 
-        // First check if driver exists
+        // First check if driver exists and get user_id
         const [driverExists] = await connection.query(
           'SELECT user_id FROM drivers WHERE id = ? AND sacco_id = ?',
           [driverId, saccoId]
@@ -132,16 +208,16 @@ class SaccoAdminDriverController {
           return res.status(404).json({ message: 'Driver not found' });
         }
 
-        // Update users table
+        // Update user-specific fields in users table
         await connection.query(
-          'UPDATE users SET name = ?, phone = ?, email = ?, status = ? WHERE id = ?',
-          [fullName, phone, email, status, driverExists[0].user_id]
+          'UPDATE users SET name = ?, phone = ?, email = ?, status = ?, address = ?, date_of_birth = ?, emergency_contact = ? WHERE id = ?',
+          [fullName, phone, email, status, address, dateOfBirth, emergencyContact, driverExists[0].user_id]
         );
 
-        // Update drivers table
+        // Update driver-specific fields in drivers table
         await connection.query(
-          'UPDATE drivers SET license_number = ?, license_expiry = ?, address = ?, date_of_birth = ?, emergency_contact = ? WHERE id = ? AND sacco_id = ?',
-          [licenseNumber, licenseExpiry, address, dateOfBirth, emergencyContact, driverId, saccoId]
+          'UPDATE drivers SET license_number = ?, license_expiry = ? WHERE id = ? AND sacco_id = ?',
+          [licenseNumber, licenseExpiry, driverId, saccoId]
         );
 
         await connection.commit();
@@ -163,7 +239,16 @@ class SaccoAdminDriverController {
 
   async deleteDriver(req, res) {
     try {
-      const saccoId = req.user.saccoId;
+      // Get the userId from the authentication context
+      const userId = req.user.id;
+      
+      // Get the saccoId for this user
+      const saccoId = await this.getSaccoIdFromUserId(userId);
+
+      if (!saccoId) {
+        return res.status(403).json({ message: 'You do not manage any SACCO' });
+      }
+      
       const driverId = req.params.id;
 
       const connection = await this.pool.getConnection();
@@ -183,7 +268,7 @@ class SaccoAdminDriverController {
 
         const userId = driver[0].user_id;
 
-        // Delete from drivers table
+        // Delete from drivers table first (due to foreign key constraint)
         await connection.query(
           'DELETE FROM drivers WHERE id = ? AND sacco_id = ?',
           [driverId, saccoId]
@@ -208,6 +293,63 @@ class SaccoAdminDriverController {
       res.status(500).json({
         message: 'Error deleting driver',
         details: process.env.NODE_ENV === 'development' ? error.message : undefined
+      });
+    }
+  }
+
+  // Add a new method to get SACCO details
+  async getSaccoDetails(req, res) {
+    try {
+      // Get the userId from the authentication context
+      const userId = req.user.id;
+      
+      // Query to get SACCO details for the current admin
+      const query = `
+        SELECT 
+          s.id,
+          s.name,
+          s.registration_number,
+          s.contact_email,
+          s.contact_phone,
+          s.address,
+          s.founded_date,
+          s.status,
+          s.total_vehicles,
+          COUNT(DISTINCT d.id) as total_drivers,
+          COUNT(DISTINCT v.id) as active_vehicles
+        FROM saccos s
+        LEFT JOIN drivers d ON s.id = d.sacco_id AND d.status = 'active'
+        LEFT JOIN vehicles v ON s.id = v.sacco_id AND v.status = 'active'
+        WHERE s.managed_by = ?
+        GROUP BY s.id
+      `;
+
+      const [saccos] = await this.pool.query(query, [userId]);
+      
+      if (!saccos || saccos.length === 0) {
+        return res.status(404).json({ message: 'No SACCO found for this admin' });
+      }
+
+      const sacco = {
+        id: saccos[0].id,
+        name: saccos[0].name || 'Unknown',
+        registrationNumber: saccos[0].registration_number || '',
+        contactEmail: saccos[0].contact_email || '',
+        contactPhone: saccos[0].contact_phone || '',
+        address: saccos[0].address || '',
+        foundedDate: saccos[0].founded_date ? new Date(saccos[0].founded_date).toISOString() : null,
+        status: saccos[0].status || 'inactive',
+        totalVehicles: Number(saccos[0].total_vehicles) || 0,
+        totalDrivers: Number(saccos[0].total_drivers) || 0,
+        activeVehicles: Number(saccos[0].active_vehicles) || 0
+      };
+
+      res.json(sacco);
+    } catch (error) {
+      console.error('[SaccoAdminDriverController] Error getting SACCO details:', error);
+      res.status(500).json({ 
+        message: 'Error fetching SACCO details',
+        error: process.env.NODE_ENV === 'development' ? error.message : undefined
       });
     }
   }

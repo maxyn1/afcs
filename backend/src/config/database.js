@@ -92,12 +92,50 @@ export class DatabaseSetup {
         role ENUM('passenger', 'driver', 'sacco_admin', 'system_admin') DEFAULT 'passenger',
         status ENUM('active', 'inactive', 'suspended') DEFAULT 'active',
         balance DECIMAL(10, 2) DEFAULT 0.00,
+        address TEXT,
+        date_of_birth DATE,
+        emergency_contact VARCHAR(20),
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
         last_login TIMESTAMP
       )
     `;
     await this.createTable('users', createQuery);
+    
+    // Check if columns exist and add them if they don't
+    try {
+      // Get all existing columns in users table
+      const [columns] = await this.pool.query(`
+        SELECT COLUMN_NAME 
+        FROM INFORMATION_SCHEMA.COLUMNS 
+        WHERE TABLE_SCHEMA = DATABASE()
+        AND TABLE_NAME = 'users'
+      `);
+      
+      // Create a set of existing column names for faster lookup
+      const existingColumns = new Set(columns.map(col => col.COLUMN_NAME.toLowerCase()));
+      
+      // Check which columns need to be added
+      const missingColumns = [];
+      if (!existingColumns.has('address')) missingColumns.push('address TEXT');
+      if (!existingColumns.has('date_of_birth')) missingColumns.push('date_of_birth DATE');
+      if (!existingColumns.has('emergency_contact')) missingColumns.push('emergency_contact VARCHAR(20)');
+      
+      
+      // Add all missing columns in a single ALTER TABLE statement
+      if (missingColumns.length > 0) {
+        await this.pool.query(`
+          ALTER TABLE users 
+          ADD COLUMN ${missingColumns.join(', ADD COLUMN ')}
+        `);
+        console.log(`Added columns to users table: ${missingColumns.map(col => col.split(' ')[0]).join(', ')}`);
+      }
+    } catch (error) {
+      console.error('Error checking/adding columns to users table:', error.message);
+    }
   }
+
+
+  
 
   // SACCOs Table
   async createSaccosTable() {

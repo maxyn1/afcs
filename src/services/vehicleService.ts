@@ -2,7 +2,7 @@ import api from './api';
 
 export interface Vehicle {
   id: number;
-  registration_number: string;
+  registrationNumber: string;
   sacco_id: string;
   sacco_name: string;
   capacity: number;

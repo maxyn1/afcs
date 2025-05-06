@@ -35,7 +35,9 @@ const driverSchema = z.object({
   licenseNumber: z.string().min(1, "License number is required"),
   licenseExpiry: z.string().min(1, "License expiry date is required"),
   status: z.string().optional(),
+  address: z.string().optional(),
   dateOfBirth: z.string().optional(),
+  emergencyContact: z.string().optional(),
 });
 
 export const RegisterDriverModal = ({
@@ -56,7 +58,9 @@ export const RegisterDriverModal = ({
       licenseNumber: "",
       licenseExpiry: "",
       status: "active",
+      address: "",
       dateOfBirth: "",
+      emergencyContact: "",
     },
   });
 
@@ -71,9 +75,11 @@ export const RegisterDriverModal = ({
           ? new Date(initialData.licenseExpiry).toISOString().split('T')[0]
           : "",
         status: initialData.status || "active",
+        address: initialData.address || "",
         dateOfBirth: initialData.dateOfBirth 
           ? new Date(initialData.dateOfBirth).toISOString().split('T')[0]
           : "",
+        emergencyContact: initialData.emergencyContact || "",
       });
     } else {
       form.reset({
@@ -83,7 +89,9 @@ export const RegisterDriverModal = ({
         licenseNumber: "",
         licenseExpiry: "",
         status: "active",
+        address: "",
         dateOfBirth: "",
+        emergencyContact: "",
       });
     }
   }, [initialData, form]);
@@ -188,6 +196,20 @@ export const RegisterDriverModal = ({
               />
             </div>
 
+            <FormField
+              control={form.control}
+              name="address"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Address</FormLabel>
+                  <FormControl>
+                    <Input {...field} placeholder="123 Main St, Nairobi" />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+
             <div className="grid grid-cols-2 gap-4">
               <FormField
                 control={form.control}
@@ -197,6 +219,20 @@ export const RegisterDriverModal = ({
                     <FormLabel>Date of Birth</FormLabel>
                     <FormControl>
                       <Input {...field} type="date" />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+
+              <FormField
+                control={form.control}
+                name="emergencyContact"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Emergency Contact</FormLabel>
+                    <FormControl>
+                      <Input {...field} placeholder="+254712345678" />
                     </FormControl>
                     <FormMessage />
                   </FormItem>

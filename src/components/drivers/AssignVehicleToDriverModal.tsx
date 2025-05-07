@@ -150,16 +150,15 @@ export function AssignVehicleToDriverModal({ driverId, open, onClose, driverName
                     No available vehicles found
                   </SelectItem>
                 ) : (
-                  // Using both ID and registrationNumber to ensure unique keys
-                  vehicles.map((vehicle: Vehicle, index: number) => (
+                  // Using a guaranteed unique key
+                  vehicles.map((vehicle: Vehicle) => (
                     <SelectItem 
-                      key={`${vehicle.id}-${vehicle.registrationNumber}-${index}`} 
+                      key={`vehicle-${vehicle.id}`} 
                       value={vehicle.id.toString()}
                     >
                       {vehicle.registrationNumber} ({vehicle.capacity} seats)
                     </SelectItem>
                   ))
-                  
                 )}
               </SelectContent>
             </Select>

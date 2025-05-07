@@ -100,7 +100,7 @@ class AdminService {
 
   async getDashboardStats() {
     try {
-      const { data } = await apiService.get(`${this.API_URL}/dashboard/stats`);
+      const { data } = await apiService.get(`${this.API_URL}/dashboard-stats`);
       return data;
     } catch (error) {
       console.error('Get dashboard stats error:', error.response?.data || error);

@@ -493,54 +493,73 @@ class SaccoAdminVehicleController {
         driverId
       });
 
-      // Verify vehicle belongs to SACCO and is active
-      const [vehicle] = await this.pool.query(
-        'SELECT id, status FROM vehicles WHERE id = ? AND sacco_id = ?',
-        [vehicleId, saccoId]
-      );
-
-      if (vehicle.length === 0) {
-        console.warn('[SaccoAdminVehicleController] Vehicle not found or not in SACCO:', vehicleId);
-        return res.status(404).json({ message: 'Vehicle not found or access denied' });
-      }
-
-      if (vehicle[0].status !== 'active') {
-        console.warn('[SaccoAdminVehicleController] Vehicle not active:', vehicle[0].status);
-        return res.status(400).json({ message: 'Can only assign drivers to active vehicles' });
-      }
-
-      // Verify driver belongs to SACCO and is not already assigned
-      const [driver] = await this.pool.query(
-        'SELECT id, vehicle_id FROM drivers WHERE id = ? AND sacco_id = ?',
-        [driverId, saccoId]
-      );
-
-      if (driver.length === 0) {
-        console.warn('[SaccoAdminVehicleController] Driver not found or not in SACCO:', driverId);
-        return res.status(404).json({ message: 'Driver not found or access denied' });
-      }
-
-      if (driver[0].vehicle_id) {
-        console.warn('[SaccoAdminVehicleController] Driver already assigned:', driver[0].vehicle_id);
-        return res.status(400).json({ message: 'Driver is already assigned to another vehicle' });
-      }
-
       const connection = await this.pool.getConnection();
+      
       try {
         await connection.beginTransaction();
 
+        // 1. Verify vehicle belongs to SACCO and is active
+        const [vehicle] = await connection.query(
+          'SELECT id, status FROM vehicles WHERE id = ? AND sacco_id = ?',
+          [vehicleId, saccoId]
+        );
+
+        if (vehicle.length === 0) {
+          throw new Error('Vehicle not found or access denied');
+        }
+
+        if (vehicle[0].status !== 'active') {
+          throw new Error('Can only assign drivers to active vehicles');
+        }
+
+        // 2. Verify driver belongs to SACCO and is available
+        const [driver] = await connection.query(
+          'SELECT id, vehicle_id, status FROM drivers WHERE id = ? AND sacco_id = ?',
+          [driverId, saccoId]
+        );
+
+        if (driver.length === 0) {
+          throw new Error('Driver not found or access denied');
+        }
+
+        if (driver[0].status !== 'active') {
+          throw new Error('Can only assign active drivers');
+        }
+
+        if (driver[0].vehicle_id) {
+          throw new Error('Driver is already assigned to another vehicle');
+        }
+
+        // 3. Check if vehicle already has an assigned driver
+        const [currentAssignment] = await connection.query(
+          'SELECT id FROM drivers WHERE vehicle_id = ? AND sacco_id = ?',
+          [vehicleId, saccoId]
+        );
+
+        if (currentAssignment.length > 0) {
+          throw new Error('Vehicle already has an assigned driver');
+        }
+
+        // 4. Perform the assignment
         await connection.query(
           'UPDATE drivers SET vehicle_id = ? WHERE id = ? AND sacco_id = ?',
           [vehicleId, driverId, saccoId]
         );
 
         await connection.commit();
+        
         console.log('[SaccoAdminVehicleController] Assignment successful:', {
           vehicleId,
           driverId,
           saccoId
         });
-        res.json({ message: 'Driver assigned successfully' });
+        
+        res.json({ 
+          message: 'Driver assigned successfully',
+          vehicleId,
+          driverId
+        });
+
       } catch (error) {
         await connection.rollback();
         throw error;
@@ -552,8 +571,8 @@ class SaccoAdminVehicleController {
         error: error.message,
         stack: error.stack
       });
-      res.status(500).json({ 
-        message: 'Error assigning driver',
+      res.status(error.message.includes('not found') ? 404 : 400).json({ 
+        message: error.message || 'Error assigning driver',
         details: process.env.NODE_ENV === 'development' ? error.message : undefined
       });
     }

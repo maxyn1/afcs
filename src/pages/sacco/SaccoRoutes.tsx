@@ -374,13 +374,13 @@ const SaccoRoutes = () => {
                   <CardHeader className="pb-2">
                     <div className="flex justify-between items-start">
                       <CardTitle className="text-lg">{route.name}</CardTitle>
-                      <Badge variant={route.status === 'active' ? 'default' : 'secondary'}>
+                      <Badge variant={route.status === 'active' ? 'secondary' : 'default'}>
                         {route.status}
                       </Badge>
                     </div>
                     <CardDescription className="flex items-center gap-1">
                       <MapPin className="h-3 w-3" />
-                      {route.distance} km
+                     <span className="text-lg font-medium text-blue-600" > {route.distance} km </span>
                     </CardDescription>
                   </CardHeader>
                   <CardContent>

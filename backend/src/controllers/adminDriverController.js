@@ -17,6 +17,7 @@ class AdminDriverController {
           d.driver_rating as rating,
           d.total_trips as totalTrips,
           d.status as driverStatus,
+          d.vehicle_id,
           u.name,
           u.phone,
           u.email,
@@ -24,10 +25,19 @@ class AdminDriverController {
           u.address,
           u.date_of_birth,
           u.emergency_contact,
-          s.name as saccoName
+          s.name as saccoName,
+          v.registration_number as vehicleNumber,
+          v.make as vehicleMake,
+          v.model as vehicleModel,
+          v.status as vehicleStatus,
+          COALESCE(
+            (SELECT status FROM trips WHERE vehicle_id = v.id AND driver_id = d.id AND status = 'in_progress' LIMIT 1),
+            'inactive'
+          ) as trip_status
         FROM users u
         JOIN drivers d ON u.id = d.user_id
         LEFT JOIN saccos s ON d.sacco_id = s.id
+        LEFT JOIN vehicles v ON d.vehicle_id = v.id
         WHERE u.role = 'driver'
         ORDER BY u.name ASC
       `;
@@ -52,7 +62,15 @@ class AdminDriverController {
         driverStatus: driver.driverStatus || 'inactive',
         address: driver.address || '',
         dateOfBirth: driver.date_of_birth ? new Date(driver.date_of_birth).toISOString() : null,
-        emergencyContact: driver.emergency_contact || ''
+        emergencyContact: driver.emergency_contact || '',
+        vehicle: driver.vehicle_id ? {
+          id: driver.vehicle_id,
+          registrationNumber: driver.vehicleNumber,
+          make: driver.vehicleMake,
+          model: driver.vehicleModel,
+          status: driver.vehicleStatus,
+          tripStatus: driver.trip_status
+        } : null
       }));
 
       res.json(transformedDrivers);
@@ -70,7 +88,7 @@ class AdminDriverController {
       const { id } = req.params;
       console.log('[AdminDriverController] Getting details for driver:', id);
 
-      // Get current assigned vehicle (if any)
+      // Get assigned vehicle info
       const vehicleQuery = `
         SELECT 
           v.id,
@@ -79,18 +97,20 @@ class AdminDriverController {
           v.model,
           v.year,
           v.capacity,
-          v.status
-        FROM vehicles v
-        JOIN trips t ON v.id = t.vehicle_id
-        JOIN drivers d ON t.driver_id = d.id
-        WHERE d.id = ? AND t.status = 'in_progress'
-        ORDER BY t.departure_time DESC
-        LIMIT 1
+          v.status,
+          COALESCE(
+            (SELECT status FROM trips WHERE vehicle_id = v.id AND driver_id = d.id AND status = 'in_progress' LIMIT 1),
+            'inactive'
+          ) as trip_status
+        FROM drivers d
+        LEFT JOIN vehicles v ON d.vehicle_id = v.id
+        WHERE d.id = ?
       `;
       
       const [vehicles] = await this.pool.query(vehicleQuery, [id]);
-      const currentVehicle = vehicles.length > 0 ? vehicles[0] : null;
+      const currentVehicle = vehicles.length > 0 && vehicles[0].id ? vehicles[0] : null;
 
+      // Get driver details
       const query = `
         SELECT 
           d.id,
@@ -99,6 +119,7 @@ class AdminDriverController {
           d.driver_rating,
           d.total_trips,
           d.status as driver_status,
+          d.vehicle_id,
           u.name,
           u.email,
           u.phone,
@@ -130,10 +151,12 @@ class AdminDriverController {
           t.departure_time,
           t.arrival_time,
           t.status,
-          COUNT(b.id) as passenger_count
+          COUNT(b.id) as passenger_count,
+          v.registration_number as vehicle_number
         FROM trips t
         JOIN routes r ON t.route_id = r.id
         LEFT JOIN bookings b ON t.id = b.trip_id
+        LEFT JOIN vehicles v ON t.vehicle_id = v.id
         WHERE t.driver_id = ?
         GROUP BY t.id
         ORDER BY t.departure_time DESC
@@ -165,7 +188,8 @@ class AdminDriverController {
           model: currentVehicle.model,
           year: currentVehicle.year,
           capacity: currentVehicle.capacity,
-          status: currentVehicle.status
+          status: currentVehicle.status,
+          tripStatus: currentVehicle.trip_status
         } : null,
         recentTrips: trips.map(trip => ({
           id: trip.trip_id,
@@ -173,7 +197,8 @@ class AdminDriverController {
           departureTime: trip.departure_time,
           arrivalTime: trip.arrival_time,
           status: trip.status,
-          passengerCount: trip.passenger_count
+          passengerCount: trip.passenger_count,
+          vehicleNumber: trip.vehicle_number
         }))
       };
 

@@ -40,13 +40,23 @@ const driverSchema = z.object({
   emergencyContact: z.string().optional(),
 });
 
+interface RegisterDriverModalProps {
+  open: boolean;
+  onClose: () => void;
+  onSubmit: (data: any) => Promise<void>;
+  initialData?: any;
+  currentUserRole: string;
+  saccos?: Array<{ id: string; name: string }>;
+}
+
 export const RegisterDriverModal = ({
   open,
   onClose,
   onSubmit,
   initialData = null,
   currentUserRole,
-}) => {
+  saccos,
+}: RegisterDriverModalProps) => {
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   const form = useForm({
@@ -239,6 +249,36 @@ export const RegisterDriverModal = ({
                 )}
               />
             </div>
+
+            {currentUserRole === 'system_admin' && (
+              <FormField
+                control={form.control}
+                name="saccoId"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>SACCO</FormLabel>
+                    <Select
+                      onValueChange={field.onChange}
+                      defaultValue={field.value}
+                    >
+                      <FormControl>
+                        <SelectTrigger>
+                          <SelectValue placeholder="Select SACCO" />
+                        </SelectTrigger>
+                      </FormControl>
+                      <SelectContent>
+                        {saccos?.map((sacco) => (
+                          <SelectItem key={sacco.id} value={sacco.id}>
+                            {sacco.name}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+            )}
 
             {initialData && (
               <FormField

@@ -36,6 +36,10 @@ interface Driver {
   totalTrips: number;
   status: 'active' | 'inactive' | 'suspended';
   phone: string;
+  saccoId?: string;
+  address?: string;
+  dateOfBirth?: string;
+  emergencyContact?: string;
   vehicle?: {
     registrationNumber: string;
     model: string;
@@ -52,6 +56,11 @@ interface DriverDetails extends Driver {
     capacity: number;
     status: 'active' | 'inactive' | 'maintenance';
   };
+}
+
+interface Sacco {
+  id: string;
+  name: string;
 }
 
 // Add utility functions outside the component
@@ -78,70 +87,158 @@ const DriverDetailsModal = ({ driverId, open, onClose }: {
 
   return (
     <Dialog open={open} onOpenChange={onClose}>
-      <DialogContent className="max-w-3xl">
+      <DialogContent className="max-w-4xl">
         <DialogHeader>
-          <DialogTitle>Driver Details</DialogTitle>
+          <DialogTitle className="text-2xl">Driver Details</DialogTitle>
         </DialogHeader>
         {isLoading ? (
-          <div>Loading...</div>
+          <div className="p-4 text-center">Loading...</div>
         ) : details ? (
-          <div className="grid grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             {/* Personal Information */}
-            <div className="space-y-4">
-              <h3 className="font-semibold">Personal Information</h3>
-              <div>
-                <p className="text-sm text-muted-foreground">Name</p>
-                <p className="font-medium">{details.name}</p>
-              </div>
-              <div>
-                <p className="text-sm text-muted-foreground">Phone</p>
-                <p className="font-medium">{details.phone}</p>
-              </div>
-              <div>
-                <p className="text-sm text-muted-foreground">Email</p>
-                <p className="font-medium">{details.email}</p>
-              </div>
-              <div>
-                <p className="text-sm text-muted-foreground">SACCO</p>
-                <p className="font-medium">{details.saccoName}</p>
-                <p className="text-sm text-muted-foreground">License</p>
-                <p className="font-medium">{details.licenseNumber}</p>
-                <p className="text-sm text-muted-foreground">
-                  Expires: {new Date(details.licenseExpiry).toLocaleDateString()}
-                </p>
-              </div>
-            </div>
-
-            {/* Vehicle Information */}
-            <div className="space-y-4">
-              <h3 className="font-semibold">Vehicle Information</h3>
-              {details.vehicle ? (
-                <>
+            <Card>
+              <CardHeader>
+                <CardTitle>Personal Information</CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <div className="grid grid-cols-2 gap-4">
                   <div>
-                    <p className="text-sm text-muted-foreground">Plate Number</p>
-                    <p className="font-medium">{details.vehicle.registrationNumber
-                    }</p>
-                  </div>
-                  <div>
-                    <p className="text-sm text-muted-foreground">Model</p>
-                    <p className="font-medium">{details.vehicle.model}</p>
-                  </div>
-                  <div>
-                    <p className="text-sm text-muted-foreground">Capacity</p>
-                    <p className="font-medium">{details.vehicle.capacity} seats</p>
-                  </div>
-                  <div>
-                    <p className="text-sm text-muted-foreground">Total Trips</p>
-                    <p className="font-medium">{details.totalTrips}</p>
+                    <p className="text-sm text-muted-foreground">Full Name</p>
+                    <p className="font-medium">{details.name}</p>
                   </div>
                   <div>
                     <p className="text-sm text-muted-foreground">Status</p>
-                    <Badge variant="outline">{details.vehicle.status}</Badge>
+                    <Badge
+                      variant={details.status === 'active' ? 'default' : 'secondary'}
+                      className={
+                        details.status === 'active'
+                          ? 'bg-green-100 text-green-800'
+                          : details.status === 'inactive'
+                          ? 'bg-gray-100 text-gray-800'
+                          : 'bg-red-100 text-red-800'
+                      }
+                    >
+                      {details.status}
+                    </Badge>
                   </div>
-                </>
-              ) : (
-                <p className="text-muted-foreground">No vehicle assigned</p>
-              )}
+                </div>
+
+                <div>
+                  <p className="text-sm text-muted-foreground">Contact Information</p>
+                  <div className="grid grid-cols-2 gap-4 mt-1">
+                    <div>
+                      <p className="text-xs text-muted-foreground">Phone</p>
+                      <p className="font-medium">{details.phone}</p>
+                    </div>
+                    <div>
+                      <p className="text-xs text-muted-foreground">Email</p>
+                      <p className="font-medium">{details.email}</p>
+                    </div>
+                  </div>
+                </div>
+
+                <div>
+                  <p className="text-sm text-muted-foreground">License Information</p>
+                  <div className="grid grid-cols-2 gap-4 mt-1">
+                    <div>
+                      <p className="text-xs text-muted-foreground">License Number</p>
+                      <p className="font-medium">{details.licenseNumber}</p>
+                    </div>
+                    <div>
+                      <p className="text-xs text-muted-foreground">Expiry Date</p>
+                      <p className="font-medium">
+                        {new Date(details.licenseExpiry).toLocaleDateString()}
+                      </p>
+                    </div>
+                  </div>
+                </div>
+
+                <div>
+                  <p className="text-sm text-muted-foreground">SACCO Information</p>
+                  <div className="mt-1">
+                    <p className="font-medium">{details.saccoName}</p>
+                  </div>
+                </div>
+
+                {details.emergencyContact && (
+                  <div>
+                    <p className="text-sm text-muted-foreground">Emergency Contact</p>
+                    <p className="font-medium">{details.emergencyContact}</p>
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+
+            {/* Performance & Vehicle Information */}
+            <div className="space-y-6">
+              <Card>
+                <CardHeader>
+                  <CardTitle>Performance Statistics</CardTitle>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                  <div className="grid grid-cols-2 gap-4">
+                    <div>
+                      <p className="text-sm text-muted-foreground">Rating</p>
+                      <p className="font-medium flex items-center gap-1">
+                        {details.rating}
+                        <Star className={`h-4 w-4 fill-current ${getRatingColor(details.rating)}`} />
+                      </p>
+                    </div>
+                    <div>
+                      <p className="text-sm text-muted-foreground">Total Trips</p>
+                      <p className="font-medium">{details.totalTrips}</p>
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+
+              <Card>
+                <CardHeader>
+                  <CardTitle>Vehicle Assignment</CardTitle>
+                </CardHeader>
+                <CardContent>
+                  {details.vehicle ? (
+                    <div className="space-y-4">
+                      <div className="grid grid-cols-2 gap-4">
+                        <div>
+                          <p className="text-sm text-muted-foreground">Registration Number</p>
+                          <p className="font-medium">{details.vehicle.registrationNumber}</p>
+                        </div>
+                        <div>
+                          <p className="text-sm text-muted-foreground">Status</p>
+                          <Badge
+                            variant="outline"
+                            className={
+                              details.vehicle.status === 'active'
+                                ? 'bg-green-100 text-green-800'
+                                : details.vehicle.status === 'maintenance'
+                                ? 'bg-yellow-100 text-yellow-800'
+                                : 'bg-red-100 text-red-800'
+                            }
+                          >
+                            {details.vehicle.status}
+                          </Badge>
+                        </div>
+                      </div>
+
+                      <div className="grid grid-cols-2 gap-4">
+                        <div>
+                          <p className="text-sm text-muted-foreground">Model</p>
+                          <p className="font-medium">{details.vehicle.model}</p>
+                        </div>
+                        <div>
+                          <p className="text-sm text-muted-foreground">Capacity</p>
+                          <p className="font-medium">{details.vehicle.capacity} seats</p>
+                        </div>
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="text-center py-4 text-muted-foreground">
+                      No vehicle currently assigned
+                    </div>
+                  )}
+                </CardContent>
+              </Card>
             </div>
           </div>
         ) : null}
@@ -215,10 +312,10 @@ const Drivers = () => {
         phone: newDriver.phone,
         licenseNumber: newDriver.licenseNumber,
         licenseExpiry: newDriver.licenseExpiry,
-        saccoId: (newDriver as any).saccoId || null,
-        address: (newDriver as any).address || '',
-        dateOfBirth: (newDriver as any).dateOfBirth || '',
-        emergencyContact: (newDriver as any).emergencyContact || '',
+        saccoId: newDriver.saccoId || null,
+        address: newDriver.address || '',
+        dateOfBirth: newDriver.dateOfBirth || '',
+        emergencyContact: newDriver.emergencyContact || '',
         status: newDriver.status || 'inactive',
       };
       return axios.post('/admin/drivers', payload);
@@ -418,21 +515,22 @@ const Drivers = () => {
               <TableHeader>
                 <TableRow>
                   <TableHead>Name</TableHead>
-                  <TableHead>License</TableHead>
+                  <TableHead>Contact Info</TableHead>
+                  <TableHead>License Details</TableHead>
                   <TableHead>SACCO</TableHead>
-                  <TableHead>Rating</TableHead>
-                  <TableHead>Trips</TableHead>
+                  <TableHead>Vehicle</TableHead>
+                  <TableHead className="text-center">Stats</TableHead>
                   <TableHead>Status</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
                 {isLoading ? (
                   <TableRow key="loading">
-                    <TableCell colSpan={6} className="text-center">Loading...</TableCell>
+                    <TableCell colSpan={7} className="text-center">Loading...</TableCell>
                   </TableRow>
                 ) : filteredDrivers.length === 0 ? (
                   <TableRow key="no-data">
-                    <TableCell colSpan={6} className="text-center">No drivers found</TableCell>
+                    <TableCell colSpan={7} className="text-center">No drivers found</TableCell>
                   </TableRow>
                 ) : (
                   filteredDrivers.map((driver, index) => (
@@ -443,6 +541,12 @@ const Drivers = () => {
                     >
                       <TableCell className="font-medium">{driver.name}</TableCell>
                       <TableCell>
+                        <div className="flex flex-col text-sm">
+                          <span>{driver.phone}</span>
+                          <span className="text-muted-foreground">{driver.email}</span>
+                        </div>
+                      </TableCell>
+                      <TableCell>
                         <div className="flex flex-col">
                           <span>{driver.licenseNumber}</span>
                           <span className="text-xs text-muted-foreground">
@@ -452,12 +556,40 @@ const Drivers = () => {
                       </TableCell>
                       <TableCell>{driver.saccoName}</TableCell>
                       <TableCell>
-                        <span className={`flex items-center gap-1 ${getRatingColor(driver.rating)}`}>
-                          {driver.rating}
-                          <Star className="h-4 w-4 fill-current" />
-                        </span>
+                        {driver.vehicle ? (
+                          <div className="flex flex-col">
+                            <span>{driver.vehicle.registrationNumber}</span>
+                            <span className="text-xs text-muted-foreground">
+                              {driver.vehicle.model} ({driver.vehicle.capacity} seats)
+                            </span>
+                            <Badge
+                              variant="outline"
+                              className={
+                                driver.vehicle.status === 'active'
+                                  ? 'bg-green-100 text-green-800'
+                                  : driver.vehicle.status === 'maintenance'
+                                  ? 'bg-yellow-100 text-yellow-800'
+                                  : 'bg-red-100 text-red-800'
+                              }
+                            >
+                              {driver.vehicle.status}
+                            </Badge>
+                          </div>
+                        ) : (
+                          <span className="text-muted-foreground">No vehicle assigned</span>
+                        )}
                       </TableCell>
-                      <TableCell>{driver.totalTrips}</TableCell>
+                      <TableCell>
+                        <div className="flex flex-col items-center">
+                          <span className={`flex items-center gap-1 ${getRatingColor(driver.rating)}`}>
+                            {driver.rating}
+                            <Star className="h-4 w-4 fill-current" />
+                          </span>
+                          <span className="text-xs text-muted-foreground">
+                            {driver.totalTrips} trips
+                          </span>
+                        </div>
+                      </TableCell>
                       <TableCell>
                         <Badge
                           variant={driver.status === 'active' ? 'default' : 'secondary'}

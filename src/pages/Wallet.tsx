@@ -7,7 +7,8 @@ import {
 } from "../components/ui/card";
 import { Button } from "../components/ui/button";
 import { Wallet as WalletIcon, Plus, CreditCard, QrCode } from "lucide-react";
-import { useEffect, useState, useCallback } from "react";
+import { useEffect, useState, useCallback, useRef } from "react";
+import { Socket, io } from "socket.io-client";
 import AuthService from "../services/authService";
 import { useToast } from "../components/ui/use-toast";
 import MpesaPayment from "../components/payments/MpesaPayment";
@@ -27,6 +28,7 @@ const Wallet = () => {
   const [showQRPayment, setShowQRPayment] = useState(false);
   const [topUpAmount, setTopUpAmount] = useState<string>("");
   const [paymentMethod, setPaymentMethod] = useState<'mpesa' | 'qr'>('mpesa');
+  const socketRef = useRef<Socket | null>(null);
 
   const loadWalletData = useCallback(async () => {
     try {
@@ -49,6 +51,61 @@ const Wallet = () => {
       setIsLoading(false);
     }
   }, [toast]);
+
+  // Initialize Socket.IO connection
+  useEffect(() => {
+    const user = AuthService.getCurrentUser();
+    if (!user) return;
+
+    // Connect to WebSocket server
+    socketRef.current = io(import.meta.env.VITE_API_URL || 'http://localhost:3000', {
+      transports: ['websocket'],
+      autoConnect: true
+    });
+
+    // Authenticate socket connection
+    socketRef.current.emit('authenticate', user.id);
+
+    // Listen for balance updates
+    socketRef.current.on('balanceUpdate', (data) => {
+      setBalance(data.balance);
+      toast({
+        title: "Balance Updated",
+        description: `${data.transaction.type === 'credit' ? 'Added' : 'Deducted'} KSH ${data.transaction.amount}`,
+        variant: data.transaction.type === 'credit' ? 'default' : 'destructive'
+      });
+      // Refresh transactions list
+      loadWalletData();
+    });
+
+    // Listen for payment updates
+    socketRef.current.on('paymentUpdate', (data) => {
+      if (data.success) {
+        setBalance(data.balance);
+        toast({
+          title: "Payment Successful",
+          description: `KSH ${data.transaction.amount} has been added to your wallet`,
+          variant: "default"
+        });
+        // Close payment dialogs
+        setShowMpesaPayment(false);
+        setShowQRPayment(false);
+        setTopUpAmount("");
+        // Refresh transaction history
+        loadWalletData();
+      } else {
+        toast({
+          title: "Payment Failed",
+          description: data.error || "Your payment could not be processed",
+          variant: "destructive"
+        });
+      }
+    });
+
+    return () => {
+      socketRef.current?.disconnect();
+    };
+  }, [toast, loadWalletData]); // Added missing dependencies
 
   useEffect(() => {
     loadWalletData();

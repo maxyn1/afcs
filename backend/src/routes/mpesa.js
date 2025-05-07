@@ -18,30 +18,28 @@ let pool;
   }
 })();
 
-// Debugging middleware that logs raw body
-const debugCallback = (req, res, next) => {
-  let data = '';
-  req.setEncoding('utf8');
-  req.on('data', function(chunk) {
-    data += chunk;
-  });
-  req.on('end', function() {
-    try {
-      req.rawBody = data;
-      if (data) {
-        req.body = JSON.parse(data);
+// Raw body parser middleware for M-Pesa callbacks
+const parseRawBody = (req, res, next) => {
+  if (req.method === 'POST' && req.path === '/callback') {
+    if (req.body instanceof Buffer) {
+      try {
+        const rawBody = req.body.toString('utf8');
+        req.rawBody = rawBody;
+        req.body = JSON.parse(rawBody);
+        console.log('📦 Parsed M-Pesa callback body:', {
+          raw: rawBody,
+          parsed: req.body
+        });
+      } catch (error) {
+        console.error('Error parsing M-Pesa callback body:', error);
+        return res.status(400).json({
+          ResultCode: 1,
+          ResultDesc: "Invalid JSON payload"
+        });
       }
-      console.log('📞 M-Pesa Callback received:', {
-        timestamp: new Date().toISOString(),
-        headers: req.headers,
-        rawBody: req.rawBody,
-        parsedBody: req.body
-      });
-    } catch (e) {
-      console.error('Error parsing callback body:', e);
     }
-    next();
-  });
+  }
+  next();
 };
 
 // Test endpoint to verify callback URL is accessible
@@ -53,13 +51,49 @@ router.get('/callback', (req, res) => {
   });
 });
 
+// M-Pesa callback route
+router.post('/callback', parseRawBody, async (req, res) => {
+  try {
+    if (!mpesaController) {
+      console.error('M-Pesa controller not initialized');
+      return res.status(503).json({
+        ResultCode: 1,
+        ResultDesc: 'Service temporarily unavailable'
+      });
+    }
+
+    if (!req.body?.Body?.stkCallback) {
+      console.error('Invalid callback data structure:', req.body);
+      return res.status(400).json({
+        ResultCode: 1,
+        ResultDesc: "Invalid callback data structure"
+      });
+    }
+
+    await mpesaController.mpesaCallback(req, res);
+  } catch (error) {
+    console.error('Callback route error:', {
+      error: error.message,
+      stack: error.stack,
+      body: req.body
+    });
+    
+    if (!res.headersSent) {
+      res.status(500).json({
+        ResultCode: 1,
+        ResultDesc: "Internal server error"
+      });
+    }
+  }
+});
+
 // STK Push initiation route
 router.post('/stk', authMiddleware(), mpesaAuthMiddleware, async (req, res) => {
   try {
     if (!mpesaController) {
-      return res.status(500).json({
+      return res.status(503).json({
         success: false,
-        message: 'Service unavailable'
+        message: 'Service temporarily unavailable'
       });
     }
 
@@ -131,30 +165,6 @@ router.get('/qr-status/:reference', authMiddleware(), mpesaAuthMiddleware, async
     res.status(500).json({
       success: false,
       message: error.message
-    });
-  }
-});
-
-// Official Safaricom M-Pesa callback route - no auth needed
-router.post('/callback', debugCallback, async (req, res) => {
-  try {
-    if (!mpesaController) {
-      console.error('M-Pesa controller not initialized');
-      return res.status(500).json({
-        ResultCode: 1,
-        ResultDesc: 'Service unavailable'
-      });
-    }
-    console.log('Processing official M-Pesa callback:', {
-      headers: req.headers,
-      body: req.body
-    });
-    await mpesaController.mpesaCallback(req, res);
-  } catch (error) {
-    console.error('Callback route error:', error);
-    res.status(500).json({
-      ResultCode: 1,
-      ResultDesc: error.message
     });
   }
 });

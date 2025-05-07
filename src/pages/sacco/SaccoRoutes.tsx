@@ -124,11 +124,11 @@ const SaccoRoutes = () => {
   const handleEditClick = (route: Route) => {
     setSelectedRoute(route);
     setNewRouteData({
-      name: route.name,
-      start_point: route.start_point,
-      end_point: route.end_point,
-      distance: route.distance.toString(),
-      fare: route.fare.toString(),
+      name: route.name || '',
+      start_point: route.start_point || '',
+      end_point: route.end_point || '',
+      distance: (route.distance ?? 0).toString(),
+      fare: (route.fare ?? 0).toString(),
     });
     setIsEditRouteOpen(true);
   };

@@ -3,6 +3,7 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import saccoAdminService from "@/services/saccoAdminService";
 import type { Driver } from "@/services/driverService";
 import { RegisterDriverModal } from "@/components/drivers/RegisterDriverModal";
+import { AssignVehicleToDriverModal } from "@/components/drivers/AssignVehicleToDriverModal";
 import {
   Card,
   CardContent,
@@ -40,6 +41,7 @@ const SaccoDrivers = () => {
   const [limit] = useState(10);
   const [isNewDriverOpen, setIsNewDriverOpen] = useState(false);
   const [editingDriver, setEditingDriver] = useState<Driver | null>(null);
+  const [assigningDriver, setAssigningDriver] = useState<{id: number, name: string} | null>(null);
   const queryClient = useQueryClient();
 
   const { data, isLoading } = useQuery({
@@ -89,7 +91,7 @@ const SaccoDrivers = () => {
   });
 
   const deleteDriverMutation = useMutation({
-    mutationFn: (id) => saccoAdminService.deleteDriver(id),
+    mutationFn: (id: string) => saccoAdminService.deleteDriver(id),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["saccoDrivers"] });
       toast({
@@ -107,6 +109,26 @@ const SaccoDrivers = () => {
     },
   });
 
+  const assignVehicleMutation = useMutation({
+    mutationFn: ({ driverId, vehicleId }: { driverId: number; vehicleId: number }) =>
+      saccoAdminService.assignVehicleToDriver(driverId, vehicleId),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["saccoDrivers"] });
+      toast({
+        title: "Vehicle assigned",
+        description: "The vehicle has been assigned to the driver successfully.",
+      });
+      setAssigningDriver(null);
+    },
+    onError: (error: Error) => {
+      toast({
+        title: "Assignment failed",
+        description: error.message || "Failed to assign vehicle. Please try again.",
+        variant: "destructive",
+      });
+    },
+  });
+
   const drivers = data || [];
   const totalPages = Math.ceil((drivers.length || 0) / limit);
 
@@ -114,7 +136,7 @@ const SaccoDrivers = () => {
     driver.name?.toLowerCase().includes(searchQuery.toLowerCase()) ||
     driver.email?.toLowerCase().includes(searchQuery.toLowerCase()) ||
     driver.phone?.includes(searchQuery) ||
-    driver.licenseNumber?.includes(searchQuery)
+    driver.license_number?.includes(searchQuery)
   );
 
   // Pagination logic
@@ -162,6 +184,13 @@ const SaccoDrivers = () => {
     });
   };
 
+  const handleAssignVehicle = (driver: Driver) => {
+    setAssigningDriver({
+      id: parseInt(driver.id), // Convert string id to number
+      name: driver.name
+    });
+  };
+
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between space-x-4">
@@ -175,7 +204,7 @@ const SaccoDrivers = () => {
           }}
           onSubmit={editingDriver ? handleUpdateSubmit : createDriverMutation.mutateAsync}
           currentUserRole="sacco_admin"
-          driver={editingDriver} // Pass the full driver object instead of initialData
+          initialData={editingDriver} // Changed from driver to initialData
         />
       </div>
 
@@ -227,15 +256,15 @@ const SaccoDrivers = () => {
                       <TableCell className="font-medium">{driver.name}</TableCell>
                       <TableCell>{driver.phone || "N/A"}</TableCell>
                       <TableCell>{driver.email || "N/A"}</TableCell>
-                      <TableCell>{driver.licenseNumber || "N/A"}</TableCell>
+                      <TableCell>{driver.license_number || "N/A"}</TableCell>
                       <TableCell>
                         <div className="flex items-center">
                           <Calendar className="mr-1 h-4 w-4" />
-                          {formatDate(driver.licenseExpiry)}
+                          {formatDate(driver.license_expiry)}
                         </div>
                       </TableCell>
                       <TableCell>{driver.rating ? driver.rating.toFixed(1) : "0.0"}/5.0</TableCell>
-                      <TableCell>{driver.totalTrips || 0}</TableCell>
+                      <TableCell>{driver.trips_count || 0}</TableCell>
                       <TableCell>
                         <Badge variant={getStatusBadgeVariant(driver.status)}>
                           {driver.status || "inactive"}
@@ -257,7 +286,11 @@ const SaccoDrivers = () => {
                           >
                             Delete
                           </Button>
-                          <Button variant="outline" size="sm">
+                          <Button 
+                            variant="outline" 
+                            size="sm"
+                            onClick={() => handleAssignVehicle(driver)}
+                          >
                             Assign Vehicle
                           </Button>
                         </div>
@@ -280,7 +313,7 @@ const SaccoDrivers = () => {
                   <PaginationItem>
                     <PaginationPrevious
                       onClick={() => setPage((prev) => Math.max(1, prev - 1))}
-                      disabled={page === 1}
+                      aria-disabled={page === 1}
                     />
                   </PaginationItem>
                   {Array.from({ length: totalPages }).map((_, i) => (
@@ -298,7 +331,7 @@ const SaccoDrivers = () => {
                       onClick={() =>
                         setPage((prev) => (prev < totalPages ? prev + 1 : prev))
                       }
-                      disabled={page === totalPages}
+                      aria-disabled={page === totalPages}
                     />
                   </PaginationItem>
                 </PaginationContent>
@@ -307,6 +340,13 @@ const SaccoDrivers = () => {
           )}
         </CardContent>
       </Card>
+
+      <AssignVehicleToDriverModal
+        driverId={assigningDriver?.id || null}
+        open={!!assigningDriver}
+        onClose={() => setAssigningDriver(null)}
+        driverName={assigningDriver?.name}
+      />
     </div>
   );
 };

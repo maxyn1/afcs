@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import {
   Dialog,
   DialogContent,
@@ -19,12 +19,16 @@ import { useToast } from "@/hooks/use-toast";
 import { Label } from "@/components/ui/label";
 import saccoAdminService from "@/services/saccoAdminService";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { AlertCircle } from "lucide-react";
+import { Alert, AlertDescription } from "@/components/ui/alert";
+import { Badge } from "@/components/ui/badge";
 
 interface Driver {
   id: number;
   name: string;
   licenseNumber: string;
   licenseExpiry: string;
+  status: string;
 }
 
 interface Props {
@@ -36,22 +40,35 @@ interface Props {
 
 export function AssignDriverModal({ vehicleId, open, onClose, vehicleRegistrationNumber }: Props) {
   const [selectedDriverId, setSelectedDriverId] = useState<string>("");
+  const [error, setError] = useState<string>("");
   const { toast } = useToast();
   const queryClient = useQueryClient();
 
-  // Reset selected driver when modal opens/closes
+  // Reset selected driver and error when modal opens/closes
   useEffect(() => {
     if (!open) {
       setSelectedDriverId("");
+      setError("");
     }
   }, [open]);
 
   // Fetch available drivers
-  const { data: drivers = [], isLoading } = useQuery({
+  const { data: rawDrivers = [], isLoading } = useQuery({
     queryKey: ['availableDrivers', vehicleId],
     queryFn: () => vehicleId ? saccoAdminService.getAvailableDrivers(vehicleId) : Promise.resolve([]),
     enabled: !!vehicleId && open,
   });
+
+  // Deduplicate drivers based on ID
+  const drivers = useMemo(() => {
+    const uniqueDrivers = new Map();
+    rawDrivers.forEach(driver => {
+      if (!uniqueDrivers.has(driver.id)) {
+        uniqueDrivers.set(driver.id, driver);
+      }
+    });
+    return Array.from(uniqueDrivers.values());
+  }, [rawDrivers]);
 
   // Assign driver mutation
   const assignDriverMutation = useMutation({
@@ -69,9 +86,11 @@ export function AssignDriverModal({ vehicleId, open, onClose, vehicleRegistratio
       onClose();
     },
     onError: (error: Error) => {
+      const message = error.message || "Failed to assign driver";
+      setError(message);
       toast({
         title: "Error",
-        description: error.message || "Failed to assign driver",
+        description: message,
         variant: "destructive",
       });
     },
@@ -79,15 +98,26 @@ export function AssignDriverModal({ vehicleId, open, onClose, vehicleRegistratio
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
+    setError(""); // Clear any previous errors
+    
     if (!selectedDriverId) {
-      toast({
-        title: "Error",
-        description: "Please select a driver",
-        variant: "destructive",
-      });
+      setError("Please select a driver");
       return;
     }
     assignDriverMutation.mutate();
+  };
+
+  const getStatusBadge = (status: string) => {
+    switch (status) {
+      case 'active':
+        return <Badge variant="success">Active</Badge>;
+      case 'inactive':
+        return <Badge variant="secondary">Inactive</Badge>;
+      case 'suspended':
+        return <Badge variant="destructive">Suspended</Badge>;
+      default:
+        return <Badge variant="outline">{status}</Badge>;
+    }
   };
 
   return (
@@ -96,15 +126,25 @@ export function AssignDriverModal({ vehicleId, open, onClose, vehicleRegistratio
         <DialogHeader>
           <DialogTitle>Assign Driver to Vehicle {vehicleRegistrationNumber}</DialogTitle>
           <DialogDescription>
-            Select a driver to assign to vehicle {vehicleRegistrationNumber}
+            Select an available driver to assign to this vehicle. Both active and inactive drivers can be assigned.
           </DialogDescription>
         </DialogHeader>
         <form onSubmit={handleSubmit} className="space-y-4">
+          {error && (
+            <Alert variant="destructive">
+              <AlertCircle className="h-4 w-4" />
+              <AlertDescription>{error}</AlertDescription>
+            </Alert>
+          )}
+          
           <div className="space-y-2">
             <Label>Select Driver</Label>
             <Select
               value={selectedDriverId}
-              onValueChange={setSelectedDriverId}
+              onValueChange={(value) => {
+                setSelectedDriverId(value);
+                setError(""); // Clear error when selection changes
+              }}
             >
               <SelectTrigger>
                 <SelectValue placeholder="Select a driver" />
@@ -116,12 +156,19 @@ export function AssignDriverModal({ vehicleId, open, onClose, vehicleRegistratio
                   </SelectItem>
                 ) : drivers.length === 0 ? (
                   <SelectItem value="none" disabled>
-                    No available drivers
+                    No available drivers found
                   </SelectItem>
                 ) : (
                   drivers.map((driver: Driver) => (
-                    <SelectItem key={driver.id} value={driver.id.toString()}>
-                      {driver.name} - {driver.licenseNumber}
+                    <SelectItem 
+                      key={driver.id} 
+                      value={driver.id.toString()}
+                      className="flex items-center justify-between"
+                    >
+                      <div className="flex items-center justify-between w-full">
+                        <span>{driver.name} - {driver.licenseNumber}</span>
+                        {getStatusBadge(driver.status)}
+                      </div>
                     </SelectItem>
                   ))
                 )}

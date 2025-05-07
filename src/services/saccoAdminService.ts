@@ -21,6 +21,10 @@ export interface Route {
   fare: number;
   status: 'active' | 'inactive';
   assigned_vehicles: number;
+  start_location?: string;
+  end_location?: string;
+  base_fare?: number;
+  estimated_duration_minutes?: number;
 }
 
 export interface Payment {
@@ -142,12 +146,37 @@ class SaccoAdminService {
 
   // Driver assignment methods
   async getAvailableDrivers(vehicleId: number): Promise<Driver[]> {
-    const response = await api.get(`/sacco-admin/vehicles/${vehicleId}/available-drivers`);
-    return response.data;
+    console.log('[SaccoAdminService] Fetching available drivers for vehicle:', vehicleId);
+    try {
+      const response = await api.get(`/sacco-admin/vehicles/${vehicleId}/available-drivers`);
+      console.log('[SaccoAdminService] Available drivers response:', response.data);
+      return response.data;
+    } catch (error) {
+      console.error('[SaccoAdminService] Error fetching available drivers:', {
+        error,
+        status: error.response?.status,
+        message: error.response?.data?.message,
+        vehicleId
+      });
+      throw error;
+    }
   }
 
   async assignDriver(vehicleId: number, driverId: number): Promise<void> {
-    await api.post(`/sacco-admin/vehicles/${vehicleId}/assign-driver`, { driverId });
+    console.log('[SaccoAdminService] Assigning driver:', { vehicleId, driverId });
+    try {
+      const response = await api.post(`/sacco-admin/vehicles/${vehicleId}/assign-driver`, { driverId });
+      console.log('[SaccoAdminService] Driver assigned successfully:', response.data);
+    } catch (error) {
+      console.error('[SaccoAdminService] Error assigning driver:', {
+        error,
+        status: error.response?.status,
+        message: error.response?.data?.message,
+        vehicleId,
+        driverId
+      });
+      throw error;
+    }
   }
 
   async unassignDriver(vehicleId: number): Promise<void> {
@@ -159,6 +188,43 @@ class SaccoAdminService {
       params: { type, date }
     });
     return response.data;
+  }
+
+  async getSaccoIdByUserId(): Promise<number> {
+    const response = await api.get('/sacco-admin/my-sacco');
+    return response.data.saccoId;
+  }
+
+  async getAvailableVehicles(): Promise<Vehicle[]> {
+    try {
+      const response = await api.get('/sacco-admin/vehicles');
+      // Filter to only return vehicles that are active and have no assigned driver
+      return response.data.filter(
+        (vehicle: Vehicle & { driverId?: number }) => 
+          vehicle.status === 'active' && !vehicle.driverId
+      );
+    } catch (error) {
+      console.error('[SaccoAdminService] Error fetching available vehicles:', error);
+      throw error;
+    }
+  }
+
+  async assignVehicleToDriver(driverId: number, vehicleId: number): Promise<void> {
+    try {
+      await api.post(`/sacco-admin/vehicles/${vehicleId}/assign-driver`, { driverId });
+    } catch (error) {
+      console.error('[SaccoAdminService] Error assigning vehicle to driver:', error);
+      throw error;
+    }
+  }
+
+  async unassignVehicleFromDriver(vehicleId: number): Promise<void> {
+    try {
+      await api.post(`/sacco-admin/vehicles/${vehicleId}/unassign-driver`);
+    } catch (error) {
+      console.error('[SaccoAdminService] Error unassigning vehicle from driver:', error);
+      throw error;
+    }
   }
 }
 

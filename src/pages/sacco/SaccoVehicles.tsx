@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import saccoAdminService from "@/services/saccoAdminService";
 import vehicleService, { Vehicle } from "@/services/vehicleService";
@@ -70,10 +70,21 @@ const SaccoVehicles = () => {
 
   const queryClient = useQueryClient();
 
-  const { data: vehicles = [], isLoading } = useQuery({
+  const { data: rawVehicles = [], isLoading } = useQuery({
     queryKey: ['vehicles'],
     queryFn: saccoAdminService.getVehicles,
   });
+
+  // Deduplicate vehicles based on ID
+  const vehicles = useMemo(() => {
+    const uniqueVehicles = new Map();
+    rawVehicles.forEach(vehicle => {
+      if (!uniqueVehicles.has(vehicle.id)) {
+        uniqueVehicles.set(vehicle.id, vehicle);
+      }
+    });
+    return Array.from(uniqueVehicles.values());
+  }, [rawVehicles]);
 
   const createVehicleMutation = useMutation({
     mutationFn: (vehicleData: Partial<Vehicle>) => {
@@ -320,9 +331,9 @@ const SaccoVehicles = () => {
                       <SelectValue placeholder="Select status" />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="active">Active</SelectItem>
-                      <SelectItem value="maintenance">Maintenance</SelectItem>
-                      <SelectItem value="retired">Retired</SelectItem>
+                      <SelectItem key="status-active" value="active">Active</SelectItem>
+                      <SelectItem key="status-maintenance" value="maintenance">Maintenance</SelectItem>
+                      <SelectItem key="status-retired" value="retired">Retired</SelectItem>
                     </SelectContent>
                   </Select>
                 </div>
@@ -385,7 +396,7 @@ const SaccoVehicles = () => {
                 </TableHeader>
                 <TableBody>
                   {filteredVehicles.map((vehicle) => (
-                    <TableRow key={vehicle.id}>
+                    <TableRow key={`vehicle-${vehicle.id}`}>
                       <TableCell className="font-medium">
                         {vehicle.registrationNumber}
                       </TableCell>
@@ -519,9 +530,9 @@ const SaccoVehicles = () => {
                     <SelectValue placeholder="Select status" />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="active">Active</SelectItem>
-                    <SelectItem value="maintenance">Maintenance</SelectItem>
-                    <SelectItem value="retired">Retired</SelectItem>
+                    <SelectItem key="status-active" value="active">Active</SelectItem>
+                    <SelectItem key="status-maintenance" value="maintenance">Maintenance</SelectItem>
+                    <SelectItem key="status-retired" value="retired">Retired</SelectItem>
                   </SelectContent>
                 </Select>
               </div>

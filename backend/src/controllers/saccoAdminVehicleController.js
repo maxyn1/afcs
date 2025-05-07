@@ -28,60 +28,49 @@ class SaccoAdminVehicleController {
 
   async getAllVehicles(req, res) {
     try {
-      // Get the userId from the authentication context
       const userId = req.user.id;
-      
-      // Get the saccoId for this user
       const saccoId = await this.getSaccoIdFromUserId(userId);
-
+  
       if (!saccoId) {
         return res.status(403).json({ message: 'You do not manage any SACCO' });
       }
-
+  
+      // Modified query to ensure distinct records and better performance
       const query = `
-        SELECT 
-          v.*,
+        SELECT
+          v.id,
+          v.registration_number,
+          v.make,
+          v.model,
+          v.year,
+          v.capacity,
+          v.status,
+          v.last_maintenance_date,
+          s.id as sacco_id,
           s.name as sacco_name,
           s.registration_number as sacco_registration,
           s.contact_email as sacco_email,
           s.contact_phone as sacco_phone,
           s.status as sacco_status,
-          GROUP_CONCAT(
-            DISTINCT CONCAT(r.start_location, ' - ', r.end_location)
-            SEPARATOR ', '
-          ) as route,
           d.id as driver_id,
-          u.name as driver_name
+          u.name as driver_name,
+          (
+            SELECT GROUP_CONCAT(DISTINCT CONCAT(r.start_location, ' - ', r.end_location) SEPARATOR ', ')
+            FROM trips t
+            JOIN routes r ON t.route_id = r.id
+            WHERE t.vehicle_id = v.id
+          ) as route
         FROM vehicles v
         INNER JOIN saccos s ON v.sacco_id = s.id
-        LEFT JOIN trips t ON v.id = t.vehicle_id
-        LEFT JOIN routes r ON t.route_id = r.id
         LEFT JOIN drivers d ON d.vehicle_id = v.id AND d.status = 'active'
         LEFT JOIN users u ON d.user_id = u.id
         WHERE v.sacco_id = ?
-        GROUP BY 
-          v.id, 
-          v.registration_number, 
-          v.make, 
-          v.model, 
-          v.year, 
-          v.capacity, 
-          v.status, 
-          v.last_maintenance_date,
-          s.id, 
-          s.name, 
-          s.registration_number, 
-          s.contact_email, 
-          s.contact_phone, 
-          s.status,
-          d.id,
-          u.name
         ORDER BY v.registration_number ASC
       `;
-
+  
       const [vehicles] = await this.pool.query(query, [saccoId]);
-
-      // Transform the data for frontend consistency
+  
+      // Transform the data for frontend consistency with unique identifiers
       const transformedVehicles = vehicles.map(vehicle => ({
         id: vehicle.id,
         registrationNumber: vehicle.registration_number || '',
@@ -90,8 +79,9 @@ class SaccoAdminVehicleController {
         year: vehicle.year || null,
         capacity: vehicle.capacity || 0,
         status: vehicle.status || 'inactive',
+        lastMaintenanceDate: vehicle.last_maintenance_date,
         sacco: {
-          id: saccoId,
+          id: vehicle.sacco_id,
           name: vehicle.sacco_name || 'Unknown',
           registrationNumber: vehicle.sacco_registration || '',
           email: vehicle.sacco_email || '',
@@ -104,7 +94,7 @@ class SaccoAdminVehicleController {
           name: vehicle.driver_name
         } : null
       }));
-
+  
       res.json(transformedVehicles);
     } catch (error) {
       console.error('[SaccoAdminVehicleController] Error:', error);
@@ -113,7 +103,7 @@ class SaccoAdminVehicleController {
         error: process.env.NODE_ENV === 'development' ? error.message : undefined
       });
     }
-  }
+  } 
 
   async createVehicle(req, res) {
     try {

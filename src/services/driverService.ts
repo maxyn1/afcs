@@ -6,9 +6,9 @@ export interface Driver {
   name: string;
   email: string;
   phone: string;
-  license_number: string;
-  license_expiry: string;
-  sacco_name: string;
+  licenseNumber: string;
+  licenseExpiry: string;
+  saccoName: string;
   vehicle_id: number | null;
   status: 'active' | 'inactive' | 'suspended';
   rating: number;

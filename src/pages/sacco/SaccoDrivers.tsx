@@ -136,7 +136,7 @@ const SaccoDrivers = () => {
     driver.name?.toLowerCase().includes(searchQuery.toLowerCase()) ||
     driver.email?.toLowerCase().includes(searchQuery.toLowerCase()) ||
     driver.phone?.includes(searchQuery) ||
-    driver.license_number?.includes(searchQuery)
+    driver.licenseNumber?.includes(searchQuery)
   );
 
   // Pagination logic
@@ -256,11 +256,11 @@ const SaccoDrivers = () => {
                       <TableCell className="font-medium">{driver.name}</TableCell>
                       <TableCell>{driver.phone || "N/A"}</TableCell>
                       <TableCell>{driver.email || "N/A"}</TableCell>
-                      <TableCell>{driver.license_number || "N/A"}</TableCell>
+                      <TableCell>{driver.licenseNumber || "N/A"}</TableCell>
                       <TableCell>
                         <div className="flex items-center">
                           <Calendar className="mr-1 h-4 w-4" />
-                          {formatDate(driver.license_expiry)}
+                          {formatDate(driver.licenseExpiry)}
                         </div>
                       </TableCell>
                       <TableCell>{driver.rating ? driver.rating.toFixed(1) : "0.0"}/5.0</TableCell>

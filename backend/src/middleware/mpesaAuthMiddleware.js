@@ -1,24 +1,26 @@
-import mpesaService from '../services/mpesaService.js';
+import { createMpesaService } from '../services/mpesaService.js';
 
-let cachedToken = null;
-let tokenExpiry = null;
+// Create a single instance of the mpesa service
+const mpesaService = createMpesaService();
 
-export async function mpesaAuthMiddleware(req, res, next) {
-  try {
-    const now = new Date();
+export const mpesaAuthMiddleware = async (req, res, next) => {
+    try {
+        // For M-Pesa callback route, skip token verification
+        if (req.path === '/callback') {
+            return next();
+        }
 
-    if (!cachedToken || !tokenExpiry || now >= tokenExpiry) {
-      const token = await mpesaService.getAuthToken();
-      cachedToken = token;
+        const token = await mpesaService.getAuthToken();
+        if (!token) {
+            throw new Error('Failed to get M-Pesa auth token');
+        }
 
-      // Token expiry set to 55 minutes from now (assuming 1 hour token validity)
-      tokenExpiry = new Date(now.getTime() + 55 * 60 * 1000);
+        next();
+    } catch (error) {
+        console.error('M-Pesa auth middleware error:', error);
+        res.status(401).json({
+            success: false,
+            message: 'M-Pesa authentication failed'
+        });
     }
-
-    req.mpesaToken = cachedToken;
-    next();
-  } catch (error) {
-    console.error('Error fetching M-Pesa auth token:', error);
-    res.status(500).json({ message: 'Failed to authenticate with M-Pesa' });
-  }
-}
+};

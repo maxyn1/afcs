@@ -1,15 +1,16 @@
-import mpesaService from '../services/mpesaService.js';
+import { createMpesaService } from '../services/mpesaService.js';
 
 class WalletController {
   constructor(pool) {
     this.pool = pool;
+    this.mpesaService = createMpesaService(pool);
   }
 
   async getBalance(req, res) {
     try {
       const [user] = await this.pool.query(
         'SELECT balance FROM users WHERE id = ?',
-        [req.user.userId]
+        [req.user.id]
       );
 
       if (user.length === 0) {
@@ -30,7 +31,7 @@ class WalletController {
          WHERE user_id = ? 
          ORDER BY transaction_time DESC 
          LIMIT 10`,
-        [req.user.userId]
+        [req.user.id]
       );
       res.json(transactions);
     } catch (error) {
@@ -47,10 +48,10 @@ class WalletController {
     }
 
     try {
-      const mpesaResponse = await mpesaService.initiateSTKPush(
+      const mpesaResponse = await this.mpesaService.initiateSTKPush(
         phoneNumber, 
         amount, 
-        `WalletTopUp-${req.user.userId}`
+        req.user.id
       );
 
       res.json({
@@ -62,6 +63,31 @@ class WalletController {
       console.error('M-Pesa STK Push initiation error:', error);
       res.status(500).json({ message: 'Error initiating M-Pesa payment' });
     }
+  }
+
+  async updateBalance(connection, userId, amount, type, transactionType, description) {
+    if (!connection || !userId || !amount || !type || !transactionType) {
+      throw new Error('Missing required parameters for updating balance');
+    }
+
+    // Insert transaction record
+    await connection.query(
+      `INSERT INTO wallet_transactions (
+        user_id, 
+        amount, 
+        transaction_type, 
+        description, 
+        status
+      ) VALUES (?, ?, ?, ?, ?)`,
+      [userId, amount, type, description || transactionType, 'completed']
+    );
+
+    // Update user balance
+    const operator = type === 'credit' ? '+' : '-';
+    await connection.query(
+      `UPDATE users SET balance = balance ${operator} ? WHERE id = ?`,
+      [amount, userId]
+    );
   }
 }
 

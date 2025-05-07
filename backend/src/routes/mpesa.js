@@ -6,11 +6,12 @@ import { mpesaAuthMiddleware } from '../middleware/mpesaAuthMiddleware.js';
 
 const router = express.Router();
 let mpesaController;
+let pool;
 
 // Initialize controller
 (async () => {
   try {
-    const pool = await connectDB();
+    pool = await connectDB();
     mpesaController = new MpesaController(pool);
   } catch (error) {
     console.error('Failed to initialize mpesa controller:', error);
@@ -24,7 +25,6 @@ const debugCallback = (req, res, next) => {
   req.on('data', function(chunk) {
     data += chunk;
   });
-
   req.on('end', function() {
     try {
       req.rawBody = data;
@@ -46,11 +46,45 @@ const debugCallback = (req, res, next) => {
 
 // Test endpoint to verify callback URL is accessible
 router.get('/callback', (req, res) => {
-  res.status(200).json({ 
+  res.status(200).json({
     message: 'MPESA callback URL is active and working',
     timestamp: new Date().toISOString(),
     env: process.env.NODE_ENV
   });
+});
+
+// STK Push initiation route
+router.post('/stk', authMiddleware(), mpesaAuthMiddleware, async (req, res) => {
+  try {
+    if (!mpesaController) {
+      return res.status(500).json({
+        success: false,
+        message: 'Service unavailable'
+      });
+    }
+
+    const { phoneNumber, amount } = req.body;
+    const userId = req.user.id;
+
+    if (!phoneNumber || !amount || isNaN(amount) || amount <= 0) {
+      return res.status(400).json({
+        success: false,
+        message: 'Valid phone number and amount are required'
+      });
+    }
+
+    const result = await mpesaController.initiateSTKPush(phoneNumber, amount, userId);
+    res.json({
+      success: true,
+      ...result
+    });
+  } catch (error) {
+    console.error('STK Push route error:', error);
+    res.status(500).json({
+      success: false,
+      message: error.message
+    });
+  }
 });
 
 // QR code generation route
@@ -62,7 +96,6 @@ router.post('/generate-qr', authMiddleware(), mpesaAuthMiddleware, async (req, r
         message: 'Service unavailable' 
       });
     }
-
     const { amount } = req.body;
     if (!amount || isNaN(amount) || amount <= 0) {
       return res.status(400).json({
@@ -70,66 +103,34 @@ router.post('/generate-qr', authMiddleware(), mpesaAuthMiddleware, async (req, r
         message: 'Valid amount is required'
       });
     }
-
     const qrResult = await mpesaController.generateQRCode(amount);
     res.json(qrResult);
   } catch (error) {
     console.error('QR generation route error:', error);
-    res.status(500).json({ 
+    res.status(500).json({
       success: false,
-      message: 'Failed to generate QR code',
-      error: process.env.NODE_ENV === 'development' ? error.message : undefined
+      message: error.message
     });
   }
 });
 
-// QR code status checking route
+// QR status check route
 router.get('/qr-status/:reference', authMiddleware(), mpesaAuthMiddleware, async (req, res) => {
   try {
     if (!mpesaController) {
-      return res.status(500).json({ 
+      return res.status(500).json({
         success: false,
-        message: 'Service unavailable' 
+        message: 'Service unavailable'
       });
     }
-
     const { reference } = req.params;
-    if (!reference) {
-      return res.status(400).json({
-        success: false,
-        message: 'Reference is required'
-      });
-    }
-
     const status = await mpesaController.checkQRStatus(reference);
     res.json(status);
   } catch (error) {
     console.error('QR status check route error:', error);
-    res.status(500).json({ 
+    res.status(500).json({
       success: false,
-      message: 'Failed to check QR status',
-      error: process.env.NODE_ENV === 'development' ? error.message : undefined
-    });
-  }
-});
-
-// Manual testing callback route - requires authentication
-router.post('/manual-callback', authMiddleware(), debugCallback, async (req, res) => {
-  try {
-    if (!mpesaController) {
-      console.error('M-Pesa controller not initialized');
-      return res.status(500).json({ 
-        ResultCode: 1,
-        ResultDesc: 'Service unavailable' 
-      });
-    }
-    await mpesaController.mpesaCallback(req, res);
-  } catch (error) {
-    console.error('Manual callback route error:', error);
-    res.status(500).json({ 
-      ResultCode: 1,
-      ResultDesc: 'Internal server error',
-      error: process.env.NODE_ENV === 'development' ? error.message : undefined
+      message: error.message
     });
   }
 });
@@ -139,9 +140,9 @@ router.post('/callback', debugCallback, async (req, res) => {
   try {
     if (!mpesaController) {
       console.error('M-Pesa controller not initialized');
-      return res.status(500).json({ 
+      return res.status(500).json({
         ResultCode: 1,
-        ResultDesc: 'Service unavailable' 
+        ResultDesc: 'Service unavailable'
       });
     }
     console.log('Processing official M-Pesa callback:', {
@@ -150,15 +151,10 @@ router.post('/callback', debugCallback, async (req, res) => {
     });
     await mpesaController.mpesaCallback(req, res);
   } catch (error) {
-    console.error('Callback route error:', {
-      error: error.message,
-      stack: error.stack,
-      body: req.body,
-      rawBody: req.rawBody
-    });
-    res.status(500).json({ 
+    console.error('Callback route error:', error);
+    res.status(500).json({
       ResultCode: 1,
-      ResultDesc: 'Internal server error' 
+      ResultDesc: error.message
     });
   }
 });

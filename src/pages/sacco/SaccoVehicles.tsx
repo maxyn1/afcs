@@ -88,7 +88,16 @@ const SaccoVehicles = () => {
 
   const createVehicleMutation = useMutation({
     mutationFn: (vehicleData: Partial<Vehicle>) => {
-      return vehicleService.createVehicle(vehicleData);
+      // Transform the data to match backend expectations
+      const transformedData = {
+        registration_number: vehicleData.registrationNumber,
+        capacity: vehicleData.capacity,
+        make: vehicleData.make,
+        model: vehicleData.model,
+        year: vehicleData.year,
+        status: vehicleData.status
+      };
+      return saccoAdminService.createVehicle(transformedData);
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['vehicles'] });
@@ -117,8 +126,18 @@ const SaccoVehicles = () => {
   });
 
   const updateVehicleMutation = useMutation({
-    mutationFn: ({ id, data }: { id: number; data: Partial<Vehicle> }) =>
-      vehicleService.updateVehicle(id, data),
+    mutationFn: ({ id, data }: { id: number; data: Partial<Vehicle> }) => {
+      // Transform the data to match backend expectations
+      const transformedData = {
+        registration_number: data.registrationNumber,
+        capacity: data.capacity,
+        make: data.make,
+        model: data.model,
+        year: data.year,
+        status: data.status
+      };
+      return saccoAdminService.updateVehicle(id, transformedData);
+    },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['vehicles'] });
       toast({

@@ -33,7 +33,7 @@ router.put('/vehicles/:id', authMiddleware(['sacco_admin']), (req, res) => sacco
 router.delete('/vehicles/:id', authMiddleware(['sacco_admin']), (req, res) => saccoAdminVehicleController.deleteVehicle(req, res));
 router.get('/vehicles/:id', authMiddleware(['sacco_admin']), (req, res) => saccoAdminVehicleController.getVehicleDetails(req, res));
 
-// Vehicle-Driver Assignment Routes
+// Vehicle Assignment Routes
 router.get('/vehicles/:vehicleId/available-drivers', authMiddleware(['sacco_admin']), (req, res) => saccoAdminVehicleController.getAvailableDrivers(req, res));
 router.post('/vehicles/:vehicleId/assign-driver', authMiddleware(['sacco_admin']), (req, res) => saccoAdminVehicleController.assignDriver(req, res));
 router.post('/vehicles/:vehicleId/unassign-driver', authMiddleware(['sacco_admin']), (req, res) => saccoAdminVehicleController.unassignDriver(req, res));

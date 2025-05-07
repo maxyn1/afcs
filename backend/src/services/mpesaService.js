@@ -3,10 +3,12 @@ import { config } from '../config/config.js';
 import QRCode from 'qrcode';
 
 class MpesaService {
-  constructor() {
+  constructor(pool = null) {
     if (!config.mpesa) {
       throw new Error('MPesa configuration is missing');
     }
+
+    this.pool = pool;
 
     // Validate URL format and presence
     if (!config.mpesa.CallBackURL) {
@@ -123,7 +125,7 @@ class MpesaService {
     return '254' + phoneNumber;
   }
 
-  async initiateSTKPush(phoneNumber, amount) {
+  async initiateSTKPush(phoneNumber, amount, userId) {
     try {
       const formattedPhone = this.formatPhoneNumber(phoneNumber);
       
@@ -186,6 +188,36 @@ class MpesaService {
         ...response.data,
         sentAccountReference: accountReference
       });
+
+      // Create transaction record
+      if (this.pool) {
+        const connection = await this.pool.getConnection();
+        try {
+          await connection.query(
+            `INSERT INTO mpesa_transactions (
+              id,
+              merchant_request_id,
+              checkout_request_id,
+              account_reference,
+              transaction_type,
+              amount,
+              phone_number,
+              user_id,
+              status
+            ) VALUES (UUID(), ?, ?, ?, 'stk_push', ?, ?, ?, 'pending')`,
+            [
+              response.data.MerchantRequestID,
+              response.data.CheckoutRequestID,
+              accountReference,
+              amount,
+              formattedPhone,
+              userId
+            ]
+          );
+        } finally {
+          connection.release();
+        }
+      }
       
       return {
         ...response.data,
@@ -195,12 +227,7 @@ class MpesaService {
       console.error('STK Push error:', {
         message: error.message,
         response: error.response?.data,
-        status: error.response?.status,
-        sentPayload: {
-          ...payload,
-          Password: '[REDACTED]',
-          AccountReference: accountReference
-        }
+        status: error.response?.status
       });
       throw error;
     }
@@ -269,4 +296,5 @@ class MpesaService {
   }
 }
 
-export default new MpesaService();
+// Export a factory function instead of an instance
+export const createMpesaService = (pool) => new MpesaService(pool);

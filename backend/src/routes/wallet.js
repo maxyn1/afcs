@@ -59,11 +59,30 @@ router.get('/transactions', debugMiddleware, authMiddleware(), async (req, res) 
   }
 });
 
-router.post('/topup', debugMiddleware, authMiddleware(), mpesaAuthMiddleware, async (req, res) => {
+router.post('/topup', authMiddleware(), async (req, res) => {
+  console.log('📝 Wallet top-up route accessed:', {
+    headers: {
+      auth: req.headers.authorization ? 'Present' : 'Missing',
+      contentType: req.headers['content-type']
+    },
+    user: req.user,
+    body: req.body
+  });
+
   try {
-    await walletController.topUp(req, res);
+    // Extract user ID from the authenticated request
+    const userId = req.user.id;
+    
+    if (!userId) {
+      return res.status(401).json({
+        success: false,
+        message: 'User ID not found in request'
+      });
+    }
+
+    await mpesaController.topUp(req, res);
   } catch (error) {
-    console.error('Top-up route error:', {
+    console.error('Wallet top-up error:', {
       error: error.message,
       stack: error.stack,
       userId: req.user?.id,

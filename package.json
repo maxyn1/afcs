@@ -1,5 +1,5 @@
 {
-  "name": "vite_react_shadcn_ts",
+  "name": "requirements",
   "private": true,
   "version": "0.0.0",
   "type": "module",
@@ -100,7 +100,7 @@
     "url": "git+https://github.com/maxyn1/afcs.git"
   },
   "keywords": [],
-  "author": "",
+  "author": "Silas",
   "license": "ISC",
   "bugs": {
     "url": "https://github.com/maxyn1/afcs/issues"

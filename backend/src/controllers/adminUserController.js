@@ -349,19 +349,24 @@ class AdminUserController {
         // Handle sacco_admin-specific updates
         if (role === 'sacco_admin' || currentUser[0].role === 'sacco_admin') {
           if (role === 'sacco_admin') {
-            if (!saccoId) {
-              throw new Error('SACCO ID is required for SACCO admin users');
+            // Only update managed_by if saccoId is provided
+            if (saccoId) {
+              await connection.query(
+                'UPDATE saccos SET managed_by = ? WHERE id = ?',
+                [id, saccoId]
+              );
             }
-            // Update or set the sacco's managed_by field
-            await connection.query(
-              'UPDATE saccos SET managed_by = ? WHERE id = ?',
-              [id, saccoId]
-            );
           } else if (currentUser[0].role === 'sacco_admin' && role !== 'sacco_admin') {
             // If user was a sacco_admin but isn't anymore, remove the managed_by reference
             await connection.query(
               'UPDATE saccos SET managed_by = NULL WHERE managed_by = ?',
               [id]
+            );
+          } else if (!role && currentUser[0].role === 'sacco_admin' && saccoId !== undefined) {
+            // If role is not changed but user is sacco_admin and saccoId is provided, update managed_by
+            await connection.query(
+              'UPDATE saccos SET managed_by = ? WHERE id = ?',
+              [id, saccoId]
             );
           }
         }
@@ -481,18 +486,47 @@ class AdminUserController {
   async changeUserRole(req, res) {
     try {
       const { id } = req.params;
-      const { role } = req.body;
+      const { role, saccoId } = req.body;
 
-      const [result] = await this.pool.query(
-        'UPDATE users SET role = ? WHERE id = ?',
-        [role, id]
-      );
+      const connection = await this.pool.getConnection();
+      await connection.beginTransaction();
 
-      if (result.affectedRows === 0) {
-        return res.status(404).json({ message: 'User not found' });
+      try {
+        // Update user role
+        const [result] = await connection.query(
+          'UPDATE users SET role = ? WHERE id = ?',
+          [role, id]
+        );
+
+        if (result.affectedRows === 0) {
+          await connection.rollback();
+          return res.status(404).json({ message: 'User not found' });
+        }
+
+        // Handle sacco_admin role updates
+        if (role === 'sacco_admin') {
+          if (saccoId) {
+            await connection.query(
+              'UPDATE saccos SET managed_by = ? WHERE id = ?',
+              [id, saccoId]
+            );
+          }
+        } else {
+          // If role changed from sacco_admin to something else, remove managed_by reference
+          await connection.query(
+            'UPDATE saccos SET managed_by = NULL WHERE managed_by = ?',
+            [id]
+          );
+        }
+
+        await connection.commit();
+        res.json({ message: 'User role updated successfully' });
+      } catch (error) {
+        await connection.rollback();
+        throw error;
+      } finally {
+        connection.release();
       }
-
-      res.json({ message: 'User role updated successfully' });
     } catch (error) {
       console.error('Error changing user role:', error);
       res.status(500).json({ message: 'Error changing user role' });

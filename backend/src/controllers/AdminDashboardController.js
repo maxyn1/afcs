@@ -7,12 +7,21 @@ class AdminDashboardController {
 
   async getDashboardStats(req, res) {
     try {
-      const userStats = await this.getUserStats();
-      const revenueStats = await this.getRevenueStats(); 
-      const vehicleStats = await this.getVehicleStats();
-      const saccoStats = await this.getSaccoStats();
-      const recentTransactions = await this.getRecentTransactions();
-      const activeSaccos = await this.getActiveSaccos();
+      const [
+        userStats,
+        revenueStats,
+        vehicleStats,
+        saccoStats,
+        recentTransactions,
+        activeSaccos
+      ] = await Promise.all([
+        this.getUserStats(),
+        this.getRevenueStats(),
+        this.getVehicleStats(),
+        this.getSaccoStats(),
+        this.getRecentTransactions(),
+        this.getActiveSaccos()
+      ]);
 
       const stats = {
         userStats,
@@ -28,7 +37,7 @@ class AdminDashboardController {
       console.error('Error fetching dashboard stats:', error);
       res.status(500).json({ 
         message: 'Error fetching dashboard statistics',
-        error: error.message 
+        error: process.env.NODE_ENV === 'development' ? error.message : undefined
       });
     }
   }
@@ -43,7 +52,6 @@ class AdminDashboardController {
       FROM users
     `);
     
-    // Calculate percentage change from previous month
     const [prevMonth] = await this.pool.query(`
       SELECT COUNT(*) as count
       FROM users
@@ -75,7 +83,6 @@ class AdminDashboardController {
       AND status = 'completed'
     `);
     
-    // Calculate percentage change from previous month
     const [prevMonth] = await this.pool.query(`
       SELECT SUM(CASE WHEN amount > 0 THEN amount ELSE 0 END) as revenue
       FROM wallet_transactions
@@ -107,20 +114,29 @@ class AdminDashboardController {
       FROM vehicles
     `);
     
-    // Calculate active vehicle percentage change
-    // Compare current active vehicles vs active 30 days ago
-    const [prevMonth] = await this.pool.query(`
-      SELECT COUNT(*) as activeVehicles
-      FROM maintenance_logs
-      WHERE maintenance_date BETWEEN DATE_SUB(NOW(), INTERVAL 60 DAY) AND DATE_SUB(NOW(), INTERVAL 30 DAY)
+    // For month-over-month comparison, we'll compare active vehicles in trips
+    const [monthlyComparison] = await this.pool.query(`
+      SELECT
+        SUM(CASE 
+          WHEN departure_time >= DATE_SUB(NOW(), INTERVAL 30 DAY) THEN 1 
+          ELSE 0 
+        END) as currentMonthActive,
+        SUM(CASE 
+          WHEN departure_time BETWEEN DATE_SUB(NOW(), INTERVAL 60 DAY) AND DATE_SUB(NOW(), INTERVAL 30 DAY) THEN 1 
+          ELSE 0 
+        END) as previousMonthActive
+      FROM (
+        SELECT DISTINCT vehicle_id, departure_time
+        FROM trips
+        WHERE departure_time >= DATE_SUB(NOW(), INTERVAL 60 DAY)
+      ) t
     `);
     
-    // Using maintenance logs as a proxy for vehicle status changes
-    const currentActiveVehicles = rows[0].activeVehicles;
-    const previousActiveVehicles = rows[0].totalVehicles - prevMonth[0].activeVehicles;
+    const currentActiveVehicles = monthlyComparison[0].currentMonthActive || 0;
+    const previousActiveVehicles = monthlyComparison[0].previousMonthActive || 0;
     const percentChange = previousActiveVehicles > 0 
       ? (((currentActiveVehicles - previousActiveVehicles) / previousActiveVehicles) * 100).toFixed(1)
-      : '+0';
+      : '+100';
     
     return {
       total: rows[0].activeVehicles,
@@ -138,7 +154,6 @@ class AdminDashboardController {
     `);
     
     // For simplicity, using a static 5% increase since SACCO registration doesn't change often
-    // In a real app, you would compare with previous period
     return {
       total: rows[0].activeSaccos,
       percentChange: '+5%',

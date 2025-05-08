@@ -58,7 +58,8 @@ const debugDriversRoute = (req, res, next) => {
   next();
 };
 
-// User management routes
+// User management routes - requires system_admin
+router.use('/users', authMiddleware(['system_admin']));
 router.get('/users', async (req, res) => {
   try {
     const controller = await getAdminUserController();
@@ -161,8 +162,9 @@ router.get('/dashboard-stats', async (req, res) => {
   }
 });
 
-// Driver management routes
-router.get('/drivers', async (req, res) => {
+// Driver management routes - requires system_admin
+router.use('/drivers', authMiddleware(['system_admin']));
+router.get('/drivers', debugDriversRoute, async (req, res) => {
   try {
     const controller = await getAdminDriverController();
     await controller.getAllDrivers(req, res);
@@ -175,7 +177,7 @@ router.get('/drivers', async (req, res) => {
   }
 });
 
-router.get('/drivers/:id', async (req, res) => {
+router.get('/drivers/:id', debugDriversRoute, async (req, res) => {
   try {
     const controller = await getAdminDriverController();
     return controller.getDriverDetails(req, res);
@@ -185,7 +187,7 @@ router.get('/drivers/:id', async (req, res) => {
   }
 });
 
-router.post('/drivers', async (req, res) => {
+router.post('/drivers', debugDriversRoute, async (req, res) => {
   try {
     const controller = await getAdminDriverController();
     return controller.createDriver(req, res);
@@ -195,7 +197,7 @@ router.post('/drivers', async (req, res) => {
   }
 });
 
-router.put('/drivers/:id', async (req, res) => {
+router.put('/drivers/:id', debugDriversRoute, async (req, res) => {
   try {
     const controller = await getAdminDriverController();
     return controller.updateDriver(req, res);
@@ -205,7 +207,7 @@ router.put('/drivers/:id', async (req, res) => {
   }
 });
 
-router.delete('/drivers/:id', async (req, res) => {
+router.delete('/drivers/:id', debugDriversRoute, async (req, res) => {
   try {
     const controller = await getAdminDriverController();
     return controller.deleteDriver(req, res);

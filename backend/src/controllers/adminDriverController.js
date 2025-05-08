@@ -1,5 +1,6 @@
 import crypto from 'crypto';
 import bcrypt from 'bcrypt';
+import { AppError, logError } from '../utils/errorHandler.js';
 
 class AdminDriverController {
   constructor(pool) {
@@ -214,118 +215,155 @@ class AdminDriverController {
 
   async createDriver(req, res) {
     try {
-      console.log('Creating a new driver...');
+      console.log('[AdminDriverController] Creating a new driver...');
       const { 
-        fullName, 
-        phone, 
-        email, 
-        licenseNumber, 
-        licenseExpiry, 
-        saccoId,
-        address,
-        dateOfBirth,
-        emergencyContact
+        fullName, email, phone, licenseNumber, licenseExpiry, saccoId,
+        address, dateOfBirth, emergencyContact, initialStatus = 'active'
       } = req.body;
+
+      // Enhanced validation with specific error messages
+      const validationErrors = {};
       
-      // Validate required fields
-      if (!fullName || !phone || !email || !licenseNumber || !licenseExpiry || !saccoId) {
-        return res.status(400).json({ 
-          message: 'Required fields missing',
-          required: ['fullName', 'phone', 'email', 'licenseNumber', 'licenseExpiry', 'saccoId']
+      // Required fields validation
+      if (!fullName) validationErrors.fullName = 'Full name is required';
+      if (!email) validationErrors.email = 'Email is required';
+      if (!phone) validationErrors.phone = 'Phone number is required';
+      if (!licenseNumber) validationErrors.licenseNumber = 'License number is required';
+      if (!licenseExpiry) validationErrors.licenseExpiry = 'License expiry date is required';
+      if (!saccoId) validationErrors.saccoId = 'SACCO ID is required';
+
+      // Format validations
+      if (email && !email.match(/^[^\s@]+@[^\s@]+\.[^\s@]+$/)) {
+        validationErrors.email = 'Invalid email format';
+      }
+
+      if (phone && !phone.match(/^\+?[\d\s-]{10,}$/)) {
+        validationErrors.phone = 'Invalid phone format (minimum 10 digits)';
+      }
+
+      if (licenseExpiry) {
+        const expiryDate = new Date(licenseExpiry);
+        if (isNaN(expiryDate.getTime())) {
+          validationErrors.licenseExpiry = 'Invalid date format';
+        } else if (expiryDate < new Date()) {
+          validationErrors.licenseExpiry = 'License has already expired';
+        }
+      }
+
+      if (dateOfBirth) {
+        const dob = new Date(dateOfBirth);
+        if (isNaN(dob.getTime())) {
+          validationErrors.dateOfBirth = 'Invalid date format';
+        } else if (dob > new Date()) {
+          validationErrors.dateOfBirth = 'Date of birth cannot be in the future';
+        }
+      }
+
+      // System admin specific validation
+      if (!['active', 'inactive', 'suspended'].includes(initialStatus)) {
+        validationErrors.status = 'Invalid status. Must be active, inactive, or suspended';
+      }
+
+      if (Object.keys(validationErrors).length > 0) {
+        return res.status(400).json({
+          success: false,
+          message: 'Validation failed',
+          errors: validationErrors
         });
       }
-
-      // Validate email format
-      if (!email.match(/^[^\s@]+@[^\s@]+\.[^\s@]+$/)) {
-        return res.status(400).json({ message: 'Invalid email format' });
-      }
-
-      // Validate phone format
-      if (!phone.match(/^\+?[\d\s-]{10,}$/)) {
-        return res.status(400).json({ message: 'Invalid phone number format' });
-      }
-
-      // Validate license expiry date
-      const expiryDate = new Date(licenseExpiry);
-      if (isNaN(expiryDate.getTime()) || expiryDate < new Date()) {
-        return res.status(400).json({ message: 'Invalid or expired license expiry date' });
-      }
-
-      const userId = crypto.randomUUID();
-      const upperLicenseNumber = licenseNumber.toUpperCase();
-      const passwordHash = await bcrypt.hash(upperLicenseNumber, 10);
 
       const connection = await this.pool.getConnection();
       
       try {
         await connection.beginTransaction();
 
-        // Verify SACCO exists
-        const [sacco] = await connection.query(
-          'SELECT id FROM saccos WHERE id = ? AND status = "active"',
-          [saccoId]
-        );
-
-        if (sacco.length === 0) {
-          return res.status(404).json({ message: 'SACCO not found or inactive' });
+        // System admin can create drivers for any SACCO that exists
+        const [sacco] = await connection.query('SELECT id FROM saccos WHERE id = ?', [saccoId]);
+        if (!sacco.length) {
+          return res.status(400).json({
+            success: false,
+            message: 'SACCO not found',
+            error: { saccoId: 'Specified SACCO does not exist' }
+          });
         }
 
-        // Check for existing email or phone
+        // Check for existing contacts
         const [existingUser] = await connection.query(
-          'SELECT id FROM users WHERE email = ? OR phone = ?',
+          'SELECT id, email, phone FROM users WHERE email = ? OR phone = ?',
           [email, phone]
         );
 
-        if (existingUser.length > 0) {
-          return res.status(409).json({ message: 'Email or phone number already registered' });
+        if (existingUser.length) {
+          const errors = {};
+          existingUser.forEach(u => {
+            if (u.email === email) errors.email = 'Email already registered';
+            if (u.phone === phone) errors.phone = 'Phone already registered';
+          });
+          return res.status(409).json({
+            success: false,
+            message: 'Contact information already in use',
+            errors
+          });
         }
 
-        // Check for existing license number
+        const upperLicenseNumber = licenseNumber.toUpperCase();
         const [existingLicense] = await connection.query(
           'SELECT id FROM drivers WHERE license_number = ?',
           [upperLicenseNumber]
         );
 
-        if (existingLicense.length > 0) {
-          return res.status(409).json({ message: 'License number already registered' });
+        if (existingLicense.length) {
+          return res.status(409).json({
+            success: false,
+            message: 'License number already registered',
+            error: { licenseNumber: 'This license number is already in use' }
+          });
         }
+
+        // Create records with admin-specified status
+        const userId = crypto.randomUUID();
+        const passwordHash = await bcrypt.hash(upperLicenseNumber, 10);
         
-        // Create user account with user-specific fields
         await connection.query(
           'INSERT INTO users (id, name, email, phone, password_hash, role, status, address, date_of_birth, emergency_contact) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
-          [userId, fullName, email, phone, passwordHash, 'driver', 'active', address || null, dateOfBirth || null, emergencyContact || null]
+          [userId, fullName, email, phone, passwordHash, 'driver', initialStatus, address, dateOfBirth, emergencyContact]
         );
-        
-        // Create driver record with driver-specific fields
+
         const [result] = await connection.query(
           'INSERT INTO drivers (user_id, sacco_id, license_number, license_expiry, driver_rating, total_trips, status) VALUES (?, ?, ?, ?, ?, ?, ?)',
-          [userId, saccoId, upperLicenseNumber, licenseExpiry, 0.00, 0, 'active']
+          [userId, saccoId, upperLicenseNumber, licenseExpiry, 0.00, 0, initialStatus]
         );
 
         await connection.commit();
 
         res.status(201).json({
-          message: 'Driver registered successfully',
-          driverId: result.insertId,
-          defaultPassword: upperLicenseNumber,
-          defaultPasswordMessage: 'Please instruct the driver to change their password on first login'
+          success: true,
+          message: 'Driver registered successfully by system admin',
+          data: {
+            driverId: result.insertId,
+            userId: userId,
+            defaultPassword: upperLicenseNumber,
+            defaultPasswordMessage: 'Please instruct the driver to change their password on first login',
+            status: initialStatus
+          }
         });
       } catch (error) {
         await connection.rollback();
-        throw error;
+        console.error('[AdminDriverController] Database error:', error);
+        res.status(500).json({
+          success: false,
+          message: 'Failed to create driver',
+          error: process.env.NODE_ENV === 'development' ? error.message : 'Internal server error'
+        });
       } finally {
         connection.release();
       }
     } catch (error) {
-      console.error('Error creating driver - Details:', {
-        message: error.message,
-        stack: error.stack,
-        sqlState: error.sqlState,
-        sqlMessage: error.sqlMessage
-      });
-      res.status(500).json({ 
-        message: 'Error creating driver',
-        details: process.env.NODE_ENV === 'development' ? error.message : undefined
+      console.error('[AdminDriverController] Unexpected error:', error);
+      res.status(500).json({
+        success: false,
+        message: 'An unexpected error occurred',
+        error: process.env.NODE_ENV === 'development' ? error.message : 'Internal server error'
       });
     }
   }
@@ -347,30 +385,133 @@ class AdminDriverController {
         emergencyContact
       } = req.body;
 
+      // Validation
+      const validationErrors = {};
+
+      if (!fullName) validationErrors.fullName = 'Full name is required';
+      if (!email) validationErrors.email = 'Email is required';
+      if (!phone) validationErrors.phone = 'Phone number is required';
+      if (!licenseNumber) validationErrors.licenseNumber = 'License number is required';
+      if (!licenseExpiry) validationErrors.licenseExpiry = 'License expiry date is required';
+      if (!saccoId) validationErrors.saccoId = 'SACCO ID is required';
+
+      // Format validations
+      if (email && !email.match(/^[^\s@]+@[^\s@]+\.[^\s@]+$/)) {
+        validationErrors.email = 'Invalid email format';
+      }
+
+      if (phone && !phone.match(/^\+?[\d\s-]{10,}$/)) {
+        validationErrors.phone = 'Invalid phone number format';
+      }
+
+      if (licenseExpiry) {
+        const expiryDate = new Date(licenseExpiry);
+        if (isNaN(expiryDate.getTime())) {
+          validationErrors.licenseExpiry = 'Invalid date format';
+        } else if (expiryDate < new Date()) {
+          validationErrors.licenseExpiry = 'License has already expired';
+        }
+      }
+
+      if (Object.keys(validationErrors).length > 0) {
+        throw new AppError(
+          'Validation failed',
+          400,
+          { validation: validationErrors },
+          'VALIDATION_ERROR'
+        );
+      }
+
       const connection = await this.pool.getConnection();
       
       try {
         await connection.beginTransaction();
 
-        // First get the user_id associated with this driver
+        // Verify driver exists
         const [[driverData]] = await connection.query(
           'SELECT user_id FROM drivers WHERE id = ?',
           [id]
         );
 
         if (!driverData) {
-          throw new Error(`Driver with ID ${id} not found`);
+          throw new AppError(
+            'Driver not found',
+            404,
+            { driverId: id },
+            'DRIVER_NOT_FOUND'
+          );
         }
 
-        const userId = driverData.user_id;
+        // Verify SACCO exists
+        const [sacco] = await connection.query(
+          'SELECT id, status FROM saccos WHERE id = ?',
+          [saccoId]
+        );
 
-        // Update user-specific fields in users table
+        if (sacco.length === 0) {
+          throw new AppError(
+            'SACCO not found',
+            400,
+            { saccoId: 'Specified SACCO does not exist' },
+            'INVALID_SACCO'
+          );
+        }
+
+        if (sacco[0].status !== 'active') {
+          throw new AppError(
+            'SACCO is not active',
+            400,
+            { saccoId: 'Specified SACCO is not active' },
+            'INACTIVE_SACCO'
+          );
+        }
+
+        // Check for duplicate contact info (excluding current driver)
+        const userId = driverData.user_id;
+        const [existingUser] = await connection.query(
+          'SELECT id, email, phone FROM users WHERE (email = ? OR phone = ?) AND id != ?',
+          [email, phone, userId]
+        );
+
+        existingUser.forEach(user => {
+          if (user.email === email) {
+            validationErrors.email = 'Email already registered to another user';
+          }
+          if (user.phone === phone) {
+            validationErrors.phone = 'Phone number already registered to another user';
+          }
+        });
+
+        if (Object.keys(validationErrors).length > 0) {
+          throw new AppError(
+            'Contact information already in use',
+            400,
+            { validation: validationErrors },
+            'DUPLICATE_CONTACT'
+          );
+        }
+
+        // Check for duplicate license number (excluding current driver)
+        const [existingLicense] = await connection.query(
+          'SELECT id FROM drivers WHERE license_number = ? AND id != ?',
+          [licenseNumber, id]
+        );
+
+        if (existingLicense.length > 0) {
+          throw new AppError(
+            'License number already registered',
+            400,
+            { licenseNumber: 'This license number is already in use by another driver' },
+            'DUPLICATE_LICENSE'
+          );
+        }
+
+        // Update records
         await connection.query(
           'UPDATE users SET name = ?, email = ?, phone = ?, status = ?, address = ?, date_of_birth = ?, emergency_contact = ? WHERE id = ?',
           [fullName, email, phone, status, address, dateOfBirth, emergencyContact, userId]
         );
 
-        // Update driver-specific fields in drivers table
         await connection.query(
           'UPDATE drivers SET license_number = ?, license_expiry = ?, sacco_id = ? WHERE id = ?',
           [licenseNumber, licenseExpiry, saccoId, id]
@@ -378,7 +519,10 @@ class AdminDriverController {
 
         await connection.commit();
 
-        res.json({ message: 'Driver updated successfully' });
+        res.json({ 
+          success: true,
+          message: 'Driver updated successfully' 
+        });
       } catch (error) {
         await connection.rollback();
         throw error;
@@ -386,15 +530,22 @@ class AdminDriverController {
         connection.release();
       }
     } catch (error) {
-      console.error('Error updating driver - Details:', {
-        message: error.message,
-        stack: error.stack,
-        sqlState: error.sqlState,
-        sqlMessage: error.sqlMessage
-      });
-      res.status(500).json({ 
-        message: 'Error updating driver',
-        details: process.env.NODE_ENV === 'development' ? error.message : undefined
+      const errorResponse = error instanceof AppError ? error : new AppError(
+        'Failed to update driver',
+        500,
+        logError(error, {
+          context: 'AdminDriverController.updateDriver',
+          params: req.params,
+          body: req.body
+        }),
+        'DRIVER_UPDATE_FAILED'
+      );
+
+      res.status(errorResponse.statusCode).json({
+        success: false,
+        message: errorResponse.message,
+        errorCode: errorResponse.errorCode,
+        details: errorResponse.details
       });
     }
   }

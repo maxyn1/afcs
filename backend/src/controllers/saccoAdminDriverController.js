@@ -34,6 +34,7 @@ class SaccoAdminDriverController {
       
       // Get the saccoId for this user
       const saccoId = await this.getSaccoIdFromUserId(userId);
+      console.log('[SaccoAdminDriverController] Getting drivers for SACCO:', saccoId);
 
       if (!saccoId) {
         return res.status(403).json({ message: 'You do not manage any SACCO' });
@@ -47,6 +48,7 @@ class SaccoAdminDriverController {
           d.driver_rating as rating,
           d.total_trips as totalTrips,
           d.status as driverStatus,
+          d.vehicle_id,
           u.name,
           u.phone,
           u.email,
@@ -54,14 +56,17 @@ class SaccoAdminDriverController {
           u.address,
           u.date_of_birth,
           u.emergency_contact,
-          s.name as saccoName
+          s.name as saccoName,
+          v.registration_number as vehicleNumber
         FROM drivers d
         JOIN users u ON d.user_id = u.id
         LEFT JOIN saccos s ON d.sacco_id = s.id
+        LEFT JOIN vehicles v ON d.vehicle_id = v.id
         WHERE d.sacco_id = ?
         ORDER BY u.name ASC
       `;
 
+      console.log('[SaccoAdminDriverController] Executing query with saccoId:', saccoId);
       const [drivers] = await this.pool.query(query, [saccoId]);
       
       if (!drivers || !Array.isArray(drivers)) {
@@ -82,9 +87,11 @@ class SaccoAdminDriverController {
         driverStatus: driver.driverStatus || 'inactive',
         address: driver.address || '',
         dateOfBirth: driver.date_of_birth ? new Date(driver.date_of_birth).toISOString() : null,
-        emergencyContact: driver.emergency_contact || ''
+        emergencyContact: driver.emergency_contact || '',
+        vehicleNumber: driver.vehicleNumber || null
       }));
 
+      console.log('[SaccoAdminDriverController] Returning drivers:', transformedDrivers.length);
       res.json(transformedDrivers);
     } catch (error) {
       console.error('[SaccoAdminDriverController] Error:', error);
@@ -97,13 +104,12 @@ class SaccoAdminDriverController {
 
   async createDriver(req, res) {
     try {
-      console.log('[SaccoAdminDriverController] Creating a new driver...');
-      
       // Get the userId from the authentication context
       const userId = req.user.id;
       
       // Get the saccoId for this user
       const saccoId = await this.getSaccoIdFromUserId(userId);
+      console.log('[SaccoAdminDriverController] Creating driver for SACCO:', saccoId);
 
       if (!saccoId) {
         return res.status(403).json({ message: 'You do not manage any SACCO' });
@@ -215,6 +221,7 @@ class SaccoAdminDriverController {
       
       // Get the saccoId for this user
       const saccoId = await this.getSaccoIdFromUserId(userId);
+      console.log('[SaccoAdminDriverController] Updating driver for SACCO:', saccoId);
 
       if (!saccoId) {
         return res.status(403).json({ message: 'You do not manage any SACCO' });
@@ -284,6 +291,7 @@ class SaccoAdminDriverController {
       
       // Get the saccoId for this user
       const saccoId = await this.getSaccoIdFromUserId(userId);
+      console.log('[SaccoAdminDriverController] Deleting driver for SACCO:', saccoId);
 
       if (!saccoId) {
         return res.status(403).json({ message: 'You do not manage any SACCO' });

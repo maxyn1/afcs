@@ -18,20 +18,29 @@ class SaccoAdminDashboardController {
 
       return rows[0].id;
     } catch (error) {
-      console.error('[SaccoAdminVehicleController] Error getting saccoId from userId:', error);
+      console.error('[SaccoAdminDashboardController] Error getting saccoId from userId:', error);
       throw error;
     }
   }
 
   async getDashboardStats(req, res) {
     try {
+      const userId = req.user.id;
+      console.log('[SaccoAdminDashboardController] Getting dashboard stats for user:', userId);
 
-      const userId = req.user.id; // Assuming user ID is available in the request object
       if (!userId) {
+        console.error('[SaccoAdminDashboardController] No user ID in request');
         return res.status(400).json({ message: 'User ID is required' });
       }
 
-      const saccoId = await this.getSaccoIdFromUserId(userId); // Assuming SACCO ID is available in the user object
+      const saccoId = await this.getSaccoIdFromUserId(userId);
+      
+      if (!saccoId) {
+        console.warn('[SaccoAdminDashboardController] No SACCO found for user:', userId);
+        return res.status(403).json({ message: 'You do not manage any SACCO' });
+      }
+
+      console.log('[SaccoAdminDashboardController] Fetching stats for SACCO:', saccoId);
 
       const [[driverStats], [vehicleStats], [routeStats], [revenueStats], [tripStats], [passengerStats]] = await Promise.all([
         this.pool.query(`
@@ -70,6 +79,7 @@ class SaccoAdminDashboardController {
           FROM trips t
           INNER JOIN vehicles v ON t.vehicle_id = v.id
           WHERE v.sacco_id = ?
+          AND DATE(t.departure_time) = CURDATE()
         `, [saccoId]),
         this.pool.query(`
           SELECT COUNT(DISTINCT b.user_id) as totalPassengers
@@ -77,10 +87,11 @@ class SaccoAdminDashboardController {
           INNER JOIN trips t ON b.trip_id = t.id
           INNER JOIN vehicles v ON t.vehicle_id = v.id
           WHERE v.sacco_id = ?
+          AND DATE(t.departure_time) = CURDATE()
         `, [saccoId])
       ]);
 
-      res.json({
+      const stats = {
         totalDrivers: driverStats?.totalDrivers || 0,
         totalVehicles: vehicleStats?.totalVehicles || 0,
         activeVehicles: vehicleStats?.activeVehicles || 0,
@@ -88,10 +99,20 @@ class SaccoAdminDashboardController {
         dailyRevenue: revenueStats?.dailyRevenue || 0,
         totalTrips: tripStats?.totalTrips || 0,
         totalPassengers: passengerStats?.totalPassengers || 0
-      });
+      };
+
+      console.log('[SaccoAdminDashboardController] Returning stats:', stats);
+      res.json(stats);
     } catch (error) {
-      console.error('Error fetching SACCO dashboard stats:', error);
-      res.status(500).json({ message: 'Failed to fetch SACCO dashboard stats' });
+      console.error('[SaccoAdminDashboardController] Error fetching dashboard stats:', {
+        error: error.message,
+        stack: error.stack,
+        userId: req.user?.id
+      });
+      res.status(500).json({ 
+        message: 'Failed to fetch SACCO dashboard stats',
+        details: process.env.NODE_ENV === 'development' ? error.message : undefined
+      });
     }
   }
 }

@@ -24,15 +24,15 @@ export const authMiddleware = (allowedRoles = []) => {
 
       // Debug decoded token with full details
       console.log('🎫 Decoded Token:', {
-        userId: decoded.userId || decoded.id, // Handle both formats
+        userId: decoded.userId,
         email: decoded.email,
         role: decoded.role,
         status: decoded.status,
         name: decoded.name,
+        sacco_id: decoded.sacco_id,
         phone: decoded.phone,
         exp: new Date(decoded.exp * 1000).toISOString(),
-        remainingTime: `${Math.round((decoded.exp * 1000 - Date.now()) / 1000 / 60)} minutes`,
-        fullDecoded: decoded // Log the full decoded token
+        remainingTime: `${Math.round((decoded.exp * 1000 - Date.now()) / 1000 / 60)} minutes`
       });
 
       // Verify user status is active
@@ -47,23 +47,22 @@ export const authMiddleware = (allowedRoles = []) => {
 
       // Set the full user object on the request
       req.user = {
-        id: decoded.userId || decoded.id, // Handle both formats
-        userId: decoded.userId || decoded.id, // Include both for compatibility
+        id: decoded.userId,
+        userId: decoded.userId,
         email: decoded.email,
         name: decoded.name,
         role: decoded.role,
         status: decoded.status,
+        saccoId: decoded.sacco_id, // Ensure SACCO ID is available
         phone: decoded.phone,
-        lastLogin: decoded.lastLogin,
-        // Include any other user properties from the token
-        ...decoded
+        lastLogin: decoded.lastLogin
       };
 
       // Debug the final user object
       console.log('👤 User object set:', {
         id: req.user.id,
-        userId: req.user.userId,
         role: req.user.role,
+        saccoId: req.user.saccoId,
         name: req.user.name
       });
 

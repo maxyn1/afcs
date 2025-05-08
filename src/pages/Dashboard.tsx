@@ -11,25 +11,7 @@ import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import axios from "axios";
-
-interface Vehicle {
-  id: string;
-  number: string;
-  sacco_id: string;
-}
-
-interface Route {
-  route: string;
-  fare: number;
-}
-
-interface Transaction {
-  id: string;
-  route: string;
-  amount: number;
-  date: string;
-  vehicleNumber?: string;
-}
+import { PassengerRoute, Vehicle, Transaction } from "@/types";
 
 const Dashboard = () => {
   const [isLoading, setIsLoading] = useState(true);
@@ -40,7 +22,7 @@ const Dashboard = () => {
   // Data states
   const [saccos, setSaccos] = useState<{ id: string; name: string }[]>([]);
   const [vehicles, setVehicles] = useState<Vehicle[]>([]);
-  const [routes, setRoutes] = useState<Route[]>([]);
+  const [routes, setRoutes] = useState<PassengerRoute[]>([]);
   const [balance, setBalance] = useState<number>(0);
   const [transactions, setTransactions] = useState<Transaction[]>([]);
   
@@ -68,12 +50,18 @@ const Dashboard = () => {
           return;
         }
 
+        console.log('Fetching initial dashboard data...');
+        
         // Fetch all initial data in parallel
         const [saccosRes, routesRes, balanceRes] = await Promise.all([
           AuthService.getSaccos(),
           AuthService.getRoutes(),
           AuthService.getWalletBalance()
         ]);
+        
+        console.log('Saccos response:', saccosRes.data);
+        console.log('Routes response:', routesRes.data);
+        console.log('Balance response:', balanceRes.data);
         
         setSaccos(saccosRes.data);
         interface BackendRoute {
@@ -86,7 +74,11 @@ const Dashboard = () => {
           status: string;
           assigned_vehicles: number;
         }
-        setRoutes(routesRes.data.map((r: BackendRoute) => ({ route: r.name, fare: r.fare })));
+        setRoutes(routesRes.data.map((r: BackendRoute) => ({ 
+          id: r.id,
+          route: r.name || `${r.start_point} - ${r.end_point}`,
+          fare: r.fare 
+        })));
         setBalance(Number(balanceRes.data.balance) || 0);
         
         // Mock transactions data (replace with actual API call)
@@ -301,7 +293,7 @@ const Dashboard = () => {
                     </SelectTrigger>
                     <SelectContent>
                       {routes.map((route) => (
-                        <SelectItem key={route.route} value={route.route}>
+                        <SelectItem key={route.id} value={route.route}>
                           <div className="flex justify-between items-center w-full">
                             <span>{route.route}</span>
                             <Badge variant="outline">KSH {route.fare}</Badge>
@@ -361,7 +353,7 @@ const Dashboard = () => {
                           </SelectItem>
                         ))
                       ) : (
-                        <SelectItem value="none" disabled>
+                        <SelectItem key="no-vehicles" value="none" disabled>
                           {selectedSacco ? "No vehicles available" : "Select a SACCO first"}
                         </SelectItem>
                       )}
@@ -513,7 +505,7 @@ const Dashboard = () => {
             ) : (
               <div className="py-8 text-center text-gray-500">
                 <History className="mx-auto mb-2 h-10 w-10 opacity-20" />
-                <p>No transactions yet</p>
+                <p>No transactions yet</p> 
               </div>
             )}
           </CardContent>

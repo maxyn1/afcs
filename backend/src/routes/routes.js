@@ -1,55 +1,55 @@
 import express from 'express';
 import { authMiddleware } from '../middleware/authMiddleware.js';
-import SaccoAdminRoutesController from '../controllers/saccoAdminRoutesController.js';
+import { connectDB } from '../config/database.js';
 
-const createRoutesRouter = (pool) => {
-  const router = express.Router();
-  const saccoAdminRoutesController = new SaccoAdminRoutesController(pool);
+const router = express.Router();
+let pool;
 
-  // Get all routes
-  router.get('/', async (req, res) => {
-    try {
-      const [routes] = await pool.query(
-        `SELECT 
-          id,
-          start_location,
-          end_location,
-          base_fare,
-          0 AS distance,
-          'active' AS status,
-          0 AS assigned_vehicles
-        FROM routes`
-      );
-      
-      const formattedRoutes = routes.map(route => ({
-        id: route.id,
-        name: `${route.start_location} - ${route.end_location}`,
-        start_point: route.start_location,
-        end_point: route.end_location,
-        distance: route.distance,
-        fare: route.base_fare,
-        status: route.status,
-        assigned_vehicles: route.assigned_vehicles
-      }));
-      
-      res.json(formattedRoutes);
-    } catch (error) {
-      console.error('Error fetching routes:', error);
-      res.status(500).json({ message: 'Error fetching routes' });
-    }
-  });
+// Initialize database connection
+(async () => {
+  try {
+    pool = await connectDB();
+  } catch (error) {
+    console.error('Failed to initialize database:', error);
+  }
+})();
 
-  // Create a new route
-  router.post('/', authMiddleware(['sacco_admin']), (req, res) => {
-    saccoAdminRoutesController.createRoute(req, res);
-  });
+// Get all routes
+router.get('/', async (req, res) => {
+  try {
+    const [routes] = await pool.query(
+      `SELECT 
+        r.id,
+        r.start_location,
+        r.end_location,
+        r.base_fare,
+        r.status,
+        COUNT(DISTINCT v.id) as assigned_vehicles
+      FROM routes r
+      LEFT JOIN trips t ON r.id = t.route_id
+      LEFT JOIN vehicles v ON t.vehicle_id = v.id AND v.status = 'active'
+      WHERE r.status = 'active'
+      GROUP BY r.id`
+    );
+    
+    const formattedRoutes = routes.map(route => ({
+      id: route.id,
+      name: `${route.start_location} - ${route.end_location}`,
+      start_point: route.start_location,
+      end_point: route.end_location,
+      fare: route.base_fare,
+      status: route.status || 'active',
+      assigned_vehicles: Number(route.assigned_vehicles) || 0
+    }));
+    
+    res.json(formattedRoutes);
+  } catch (error) {
+    console.error('Error fetching routes:', error);
+    res.status(500).json({ 
+      message: 'Error fetching routes',
+      error: process.env.NODE_ENV === 'development' ? error.message : undefined 
+    });
+  }
+});
 
-  // Update an existing route
-  router.put('/:id', authMiddleware(['sacco_admin']), (req, res) => {
-    saccoAdminRoutesController.updateRoute(req, res);
-  });
-
-  return router;
-};
-
-export default createRoutesRouter;
+export default router;

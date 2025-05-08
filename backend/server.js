@@ -19,7 +19,7 @@ dotenv.config();
 const app = express();
 const PORT = process.env.PORT || 3000;
 
-// Enhanced request logging middleware
+// Request logging middleware
 app.use((req, res, next) => {
   const startTime = Date.now();
   const requestId = Math.random().toString(36).substring(7);
@@ -44,7 +44,8 @@ app.use((req, res, next) => {
   // Log response details
   res.on('finish', () => {
     const duration = Date.now() - startTime;
-    console.log(`✨ [${requestId}] Response Sent:`, {
+    const level = res.statusCode >= 400 ? '❌' : '✨';
+    console.log(`${level} [${requestId}] Response Sent:`, {
       timestamp: new Date().toISOString(),
       duration: `${duration}ms`,
       status: res.statusCode,
@@ -53,19 +54,10 @@ app.use((req, res, next) => {
     });
   });
 
-  // Log any errors
-  res.on('error', (error) => {
-    console.error(`❌ [${requestId}] Response Error:`, {
-      timestamp: new Date().toISOString(),
-      error: error.message,
-      stack: error.stack
-    });
-  });
-
   next();
 });
 
-// CORS configuration - allow Safaricom callback URL
+// CORS configuration
 const allowedOrigins = [
   'http://localhost:5173',
   'https://renewed-sterling-dingo.ngrok-free.app',
@@ -74,14 +66,12 @@ const allowedOrigins = [
 
 app.use(cors({
   origin: (origin, callback) => {
-    // allow requests with no origin (like mobile apps, curl requests)
-    if (!origin) return callback(null, true);
-    
-    if (allowedOrigins.indexOf(origin) === -1) {
+    if (!origin || allowedOrigins.includes(origin)) {
+      callback(null, true);
+    } else {
       console.log('Blocked by CORS:', origin);
-      return callback(null, false);
+      callback(new Error('Not allowed by CORS'));
     }
-    return callback(null, true);
   },
   credentials: true
 }));
@@ -105,30 +95,27 @@ app.use('/api/driver', driverRoutes);
 app.use('/api/mpesa', mpesaRoutes);
 app.use('/api/payments', paymentsRoutes);
 
-// Add a catch-all route handler
-app.use((req, res) => {
-  console.log('❌ No route found for:', req.method, req.url);
-  res.status(404).json({ message: 'Not Found' });
+// Add a catch-all route handler for unmatched routes
+app.use((req, res, next) => {
+  const error = new Error('Route not found');
+  error.statusCode = 404;
+  next(error);
 });
 
 // Error handling middleware
-app.use((err, req, res, next) => {
-  console.error('❌ Error:', err);
-  res.status(500).json({ message: 'Internal Server Error' });
-});
+app.use(errorHandler);
 
 // Initialize database and start server
 const startServer = async () => {
   try {
     await connectDB();
-    console.log('Database connected successfully');
+    console.log('✅ Database connected successfully');
     
     app.listen(PORT, () => {
-      console.log(`Server is running on port ${PORT}`);
-      console.log('MPESA Callback URL:', process.env.MPESA_CALLBACK_URL);
+      console.log(`✅ Server is running on port ${PORT}`);
     });
   } catch (error) {
-    console.error('Failed to start server:', error);
+    console.error('❌ Failed to start server:', error);
     process.exit(1);
   }
 };

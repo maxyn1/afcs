@@ -1,13 +1,14 @@
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/contexts/AuthContext";
-import { Bus, CreditCard, Users, Route as RouteIcon, Clock } from "lucide-react";
-import { useQuery, useMutation } from "@tanstack/react-query";
+import { Bus, CreditCard, Users, Route as RouteIcon, Clock, AlertTriangle } from "lucide-react";
+import { useQuery, useMutation, UseQueryResult } from "@tanstack/react-query";
 import driverService from "@/services/driverService";
 import { VehicleDetailsModal } from "@/components/modals/VehicleDetailsModal";
+import type { VehicleInfo, DashboardStats } from "@/services/driverService";
 
 const DriverDashboard = () => {
   const { user } = useAuth();
@@ -18,10 +19,18 @@ const DriverDashboard = () => {
   const [totalPassengers, setTotalPassengers] = useState(0);
   const [currentRoute, setCurrentRoute] = useState("Not assigned");
   const [showVehicleModal, setShowVehicleModal] = useState(false);
-  const [vehicleInfo, setVehicleInfo] = useState(null);
-  const [isLoadingVehicle, setIsLoadingVehicle] = useState(false);
 
-  const { data: dashboardStats, error: statsError, isLoading: statsLoading } = useQuery({
+  // Fetch vehicle info
+  const { data: vehicle, isLoading: vehicleLoading } = useQuery<VehicleInfo, Error>({
+    queryKey: ['driverVehicle'],
+    queryFn: () => driverService.getVehicleInfo(),
+    retry: (failureCount, error) => {
+      // Don't retry if no vehicle is assigned
+      return !error.message?.includes('No vehicle currently assigned') && failureCount < 3;
+    }
+  });
+
+  const { data: dashboardStats, error: statsError, isLoading: statsLoading } = useQuery<DashboardStats, Error>({
     queryKey: ['driverDashboardStats'],
     queryFn: async () => {
       try {
@@ -47,61 +56,37 @@ const DriverDashboard = () => {
   });
 
   const statusMutation = useMutation({
-    mutationFn: (newStatus: boolean) => {
-      console.log('Updating driver status to:', newStatus ? 'active' : 'inactive');
-      return driverService.updateStatus(newStatus ? 'active' : 'inactive');
-    },
+    mutationFn: (status: 'active' | 'inactive') => driverService.updateStatus(status),
     onSuccess: () => {
-      console.log('Status updated successfully');
+      setIsOnline(!isOnline);
       toast({
-        title: isOnline ? "You are now offline" : "You are now online",
-        description: isOnline ? "You won't receive any trip requests" : "You can now receive trip requests",
+        description: `You are now ${!isOnline ? 'online' : 'offline'}`,
       });
     },
-    onError: (error) => {
-      console.error('Error updating status:', error);
-      setIsOnline(!isOnline); // Revert state
+    onError: () => {
       toast({
-        title: "Update failed",
-        description: "Failed to update your status. Please try again.",
+        title: "Error",
+        description: "Failed to update status",
         variant: "destructive",
       });
     }
   });
 
   const toggleOnlineStatus = () => {
-    console.log('Toggling online status. Current:', isOnline);
-    setIsOnline(!isOnline);
-    statusMutation.mutate(!isOnline);
+    statusMutation.mutate(isOnline ? 'inactive' : 'active');
   };
 
-  const handleViewVehicleDetails = async () => {
+  const handleViewVehicleDetails = () => {
     setShowVehicleModal(true);
-    setIsLoadingVehicle(true);
-    try {
-      const data = await driverService.getVehicleInfo();
-      setVehicleInfo(data);
-    } catch (error) {
-      console.error('Failed to load vehicle info:', error);
-      toast({
-        title: "Error",
-        description: "Failed to load vehicle information",
-        variant: "destructive",
-      });
-    } finally {
-      setIsLoadingVehicle(false);
-    }
   };
 
-  if (statsLoading) {
-    console.log('Loading dashboard stats...');
+  if (statsLoading || vehicleLoading) {
     return <div className="flex items-center justify-center min-h-screen">
       <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-primary"></div>
     </div>;
   }
 
   if (statsError) {
-    console.error('Dashboard stats error:', statsError);
     return <div className="p-4 text-red-500">Error loading dashboard data</div>;
   }
 
@@ -145,7 +130,7 @@ const DriverDashboard = () => {
           <CardContent>
             <div className="text-2xl font-bold">KES {todayEarnings}</div>
             <p className="text-xs text-muted-foreground">
-              +2.1% from yesterday
+              total earnings today
             </p>
           </CardContent>
         </Card>
@@ -180,28 +165,42 @@ const DriverDashboard = () => {
           <CardTitle>Your Vehicle</CardTitle>
         </CardHeader>
         <CardContent className="flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
-          <div className="flex items-center gap-4">
-            <Bus className="h-10 w-10 text-primary" />
-            <div>
-              <h3 className="font-bold">KBX 123A</h3>
-              <p className="text-muted-foreground">33 Seater Bus</p>
+          {vehicle ? (
+            <>
+              <div className="flex items-center gap-4">
+                <Bus className="h-10 w-10 text-primary" />
+                <div>
+                  <h3 className="font-bold">{vehicle.registration_number}</h3>
+                  <p className="text-muted-foreground">{vehicle.capacity} Seater {vehicle.make} {vehicle.model}</p>
+                </div>
+              </div>
+              <div className="flex flex-col gap-2">
+                <Badge variant="outline">{vehicle.sacco_name}</Badge>
+                <Badge variant="outline" className={vehicle.vehicle_status === 'active' ? 'bg-green-50' : 'bg-amber-50'}>
+                  {vehicle.vehicle_status === 'active' ? 'Active' : 'Maintenance Required'}
+                </Badge>
+              </div>
+              <Button variant="outline" onClick={handleViewVehicleDetails}>
+                View Details
+              </Button>
+            </>
+          ) : (
+            <div className="w-full text-center py-6">
+              <div className="flex flex-col items-center gap-2">
+                <AlertTriangle className="h-8 w-8 text-amber-500" />
+                <h3 className="font-semibold">No Vehicle Assigned</h3>
+                <p className="text-muted-foreground">Contact your SACCO administrator to get a vehicle assigned.</p>
+              </div>
             </div>
-          </div>
-          <div className="flex flex-col gap-2">
-            <Badge variant="outline">Metro SACCO</Badge>
-            <Badge variant="outline" className="bg-green-50">Maintenance Up-to-date</Badge>
-          </div>
-          <Button variant="outline" onClick={handleViewVehicleDetails}>
-            View Details
-          </Button>
+          )}
         </CardContent>
       </Card>
 
       <VehicleDetailsModal
         isOpen={showVehicleModal}
         onClose={() => setShowVehicleModal(false)}
-        vehicleInfo={vehicleInfo}
-        isLoading={isLoadingVehicle}
+        vehicleInfo={vehicle}
+        isLoading={vehicleLoading}
       />
     </div>
   );

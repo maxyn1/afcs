@@ -38,6 +38,7 @@ const driverSchema = z.object({
   address: z.string().optional(),
   dateOfBirth: z.string().optional(),
   emergencyContact: z.string().optional(),
+  saccoId: z.string().optional(),
 });
 
 interface RegisterDriverModalProps {
@@ -47,6 +48,7 @@ interface RegisterDriverModalProps {
   initialData?: any;
   currentUserRole: string;
   saccos?: Array<{ id: string; name: string }>;
+  defaultSaccoId?: string;
 }
 
 export const RegisterDriverModal = ({
@@ -56,6 +58,7 @@ export const RegisterDriverModal = ({
   initialData = null,
   currentUserRole,
   saccos,
+  defaultSaccoId,
 }: RegisterDriverModalProps) => {
   const [isSubmitting, setIsSubmitting] = useState(false);
 
@@ -71,6 +74,7 @@ export const RegisterDriverModal = ({
       address: "",
       dateOfBirth: "",
       emergencyContact: "",
+      saccoId: "",
     },
   });
 
@@ -90,6 +94,7 @@ export const RegisterDriverModal = ({
           ? new Date(initialData.dateOfBirth).toISOString().split('T')[0]
           : "",
         emergencyContact: initialData.emergencyContact || "",
+        saccoId: initialData.saccoId || "",
       });
     } else {
       form.reset({
@@ -102,9 +107,13 @@ export const RegisterDriverModal = ({
         address: "",
         dateOfBirth: "",
         emergencyContact: "",
+        saccoId: "",
       });
     }
-  }, [initialData, form]);
+    if (currentUserRole === 'sacco_admin' && defaultSaccoId) {
+      form.setValue('saccoId', defaultSaccoId);
+    }
+  }, [initialData, form, currentUserRole, defaultSaccoId]);
 
   const handleSubmit = async (data) => {
     try {

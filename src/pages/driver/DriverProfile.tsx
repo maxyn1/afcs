@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import driverService, { Driver } from "@/services/driverService";
+import driverService, { Driver, VehicleInfo } from "@/services/driverService";
 import {
   Card,
   CardContent,
@@ -21,7 +21,8 @@ const DriverProfile = () => {
   const [formData, setFormData] = useState<Partial<Driver>>({});
   const queryClient = useQueryClient();
 
-  const { data: driver, isLoading, error, isError } = useQuery({
+  // Query for driver profile
+  const { data: driver, isLoading, error, isError } = useQuery<Driver, Error>({
     queryKey: ['driverProfile'],
     queryFn: async () => {
       try {
@@ -35,6 +36,16 @@ const DriverProfile = () => {
       }
     },
     retry: 1
+  });
+
+  // Query for vehicle info if driver has assigned vehicle
+  const { data: vehicleInfo } = useQuery<VehicleInfo, Error>({
+    queryKey: ['driverVehicle'],
+    queryFn: () => driverService.getVehicleInfo(),
+    enabled: !!driver?.vehicle_id,
+    retry: (failureCount, error) => {
+      return !error.message?.includes('No vehicle currently assigned') && failureCount < 3;
+    }
   });
 
   const updateMutation = useMutation({
@@ -208,7 +219,7 @@ const DriverProfile = () => {
                   <div className="flex items-center gap-2">
                     <IdCard className="h-4 w-4 text-muted-foreground" />
                     <span className="text-muted-foreground">License:</span>
-                    <span className="font-medium">{driver?.license_number}</span>
+                    <span className="font-medium">{driver?.licenseNumber}</span>
                   </div>
                 </div>
               </div>
@@ -226,17 +237,47 @@ const DriverProfile = () => {
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-2">
                   <span className="text-muted-foreground">SACCO:</span>
-                  <span className="font-medium">{driver?.sacco_name}</span>
+                  <span className="font-medium">{driver?.saccoName}</span>
                 </div>
                 <Badge variant="outline">{driver?.status}</Badge>
               </div>
               <Separator />
-              <div className="flex items-center gap-2">
-                <Car className="h-4 w-4 text-muted-foreground" />
-                <span className="text-muted-foreground">Assigned Vehicle:</span>
-                <span className="font-medium">
-                  {driver?.vehicle_id ? `Vehicle #${driver?.vehicle_id}` : "Not assigned"}
-                </span>
+              <div className="space-y-4">
+                {vehicleInfo ? (
+                  <>
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-2">
+                        <Car className="h-4 w-4 text-muted-foreground" />
+                        <span className="text-muted-foreground">Assigned Vehicle:</span>
+                        <span className="font-medium">{vehicleInfo.registration_number}</span>
+                      </div>
+                      <Badge 
+                        variant={vehicleInfo.vehicle_status === 'active' ? 'default' : 'secondary'}
+                        className="capitalize"
+                      >
+                        {vehicleInfo.vehicle_status}
+                      </Badge>
+                    </div>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4 pt-2">
+                      <div>
+                        <p className="text-sm text-muted-foreground">Vehicle Details</p>
+                        <p className="font-medium">{vehicleInfo.make} {vehicleInfo.model} ({vehicleInfo.year})</p>
+                        <p className="text-sm">{vehicleInfo.capacity} Seater</p>
+                      </div>
+                      {vehicleInfo.route && (
+                        <div>
+                          <p className="text-sm text-muted-foreground">Current Route</p>
+                          <p className="font-medium">{vehicleInfo.route}</p>
+                        </div>
+                      )}
+                    </div>
+                  </>
+                ) : (
+                  <div className="flex items-center gap-2 text-muted-foreground">
+                    <Car className="h-4 w-4" />
+                    <span>No vehicle currently assigned</span>
+                  </div>
+                )}
               </div>
             </div>
           </CardContent>

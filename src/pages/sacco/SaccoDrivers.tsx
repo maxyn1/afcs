@@ -202,7 +202,13 @@ const SaccoDrivers = () => {
             setIsNewDriverOpen(false);
             setEditingDriver(null);
           }}
-          onSubmit={editingDriver ? handleUpdateSubmit : createDriverMutation.mutateAsync}
+          onSubmit={async (data) => {
+            if (editingDriver) {
+              await handleUpdateSubmit(data);
+            } else {
+              await createDriverMutation.mutateAsync(data);
+            }
+          }}
           currentUserRole="sacco_admin"
           initialData={editingDriver} // Changed from driver to initialData
         />

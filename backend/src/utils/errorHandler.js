@@ -7,6 +7,18 @@ export class AppError extends Error {
   }
 }
 
+export const logError = (error, context = {}) => {
+  const errorLog = {
+    message: error.message,
+    stack: error.stack,
+    timestamp: new Date().toISOString(),
+    ...context
+  };
+  
+  console.error('Error logged:', errorLog);
+  return errorLog;
+};
+
 export const errorHandler = (err, req, res, next) => {
   console.error('Error:', {
     message: err.message,

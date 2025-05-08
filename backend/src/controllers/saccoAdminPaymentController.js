@@ -3,11 +3,39 @@ import { AppError } from '../utils/errorHandler.js';
 class SaccoAdminPaymentController {
   constructor(pool) {
     this.pool = pool;
+    console.log('[SaccoAdminPaymentController] Initialized with pool:', !!pool);
+  }
+
+  // Helper method to get saccoId from userId
+  async getSaccoIdFromUserId(userId) {
+    try {
+      // Query the saccos table to find the sacco managed by this user
+      const [rows] = await this.pool.query(
+        'SELECT id FROM saccos WHERE managed_by = ?',
+        [userId]
+      );
+
+      if (!rows || rows.length === 0) {
+        return null; // User does not manage any SACCO
+      }
+
+      return rows[0].id;
+    } catch (error) {
+      console.error('[SaccoAdminPaymentController] Error getting saccoId from userId:', error);
+      throw error;
+    }
   }
 
   async getPayments(req, res) {
     try {
-      const saccoId = req.user.saccoId;
+      const userId = req.user.id;
+      console.log('[SaccoAdminPaymentController] Getting payments for user:', userId);
+
+      const saccoId = await this.getSaccoIdFromUserId(userId);
+      if (!saccoId) {
+        return res.status(403).json({ message: 'You do not manage any SACCO' });
+      }
+
       const { startDate, endDate, page = 1, searchTerm = '', filterStatus } = req.query;
       const limit = 10;
       const offset = (page - 1) * limit;
@@ -80,14 +108,20 @@ class SaccoAdminPaymentController {
 
       res.json({ data: payments, totalPages });
     } catch (error) {
-      console.error('Error fetching payments:', error);
+      console.error('[SaccoAdminPaymentController] Error fetching payments:', error);
       res.status(500).json({ message: 'Failed to fetch payments' });
     }
   }
 
   async getPaymentStats(req, res) {
     try {
-      const saccoId = req.user.saccoId;
+      const userId = req.user.id;
+      console.log('[SaccoAdminPaymentController] Getting payment stats for user:', userId);
+
+      const saccoId = await this.getSaccoIdFromUserId(userId);
+      if (!saccoId) {
+        return res.status(403).json({ message: 'You do not manage any SACCO' });
+      }
 
       const [[totalRevenueResult], [transactionsThisMonthResult], [pendingPaymentsResult]] = await Promise.all([
         this.pool.query(`
@@ -122,7 +156,7 @@ class SaccoAdminPaymentController {
         pendingPayments: pendingPaymentsResult[0].pendingPayments || 0
       });
     } catch (error) {
-      console.error('Error fetching payment stats:', error);
+      console.error('[SaccoAdminPaymentController] Error fetching payment stats:', error);
       res.status(500).json({ message: 'Failed to fetch payment stats' });
     }
   }

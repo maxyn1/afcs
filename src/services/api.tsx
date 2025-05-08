@@ -1,17 +1,21 @@
 import axios from 'axios';
 
+// Simple in-memory cache implementation
+const cache = new Map();
+const CACHE_DURATION = 5 * 60 * 1000; // 5 minutes in milliseconds
+
 // Create an Axios instance with base configuration
 const api = axios.create({
   baseURL: 'http://localhost:3000/api',
-  timeout: 40000, // 10 seconds
+  timeout: 100000, // 10 seconds
   headers: {
     'Content-Type': 'application/json',
   }
 });
 
-// Add request debugging
+// Add request debugging and caching
 api.interceptors.request.use(
-  (config) => {
+  async (config) => {
     const user = localStorage.getItem('user');
     if (user) {
       const parsedUser = JSON.parse(user);
@@ -25,6 +29,27 @@ api.interceptors.request.use(
         tokenFirstChars: token.substring(0, 10) + '...',
         tokenLastChars: '...' + token.substring(token.length - 10)
       });
+    }
+
+    // Check cache for GET requests
+    if (config.method?.toLowerCase() === 'get') {
+      const cacheKey = `${config.url}${JSON.stringify(config.params || {})}`;
+      const cachedResponse = cache.get(cacheKey);
+      
+      if (cachedResponse) {
+        const now = Date.now();
+        if (now - cachedResponse.timestamp < CACHE_DURATION) {
+          console.log('🎯 Cache hit:', config.url);
+          return Promise.reject({
+            __CACHE_HIT__: true,
+            config,
+            ...cachedResponse.data
+          });
+        } else {
+          // Remove expired cache entry
+          cache.delete(cacheKey);
+        }
+      }
     }
 
     console.log('🚀 API Request:', {
@@ -48,9 +73,18 @@ api.interceptors.request.use(
   }
 );
 
-// Add response debugging
+// Add response debugging and caching
 api.interceptors.response.use(
   (response) => {
+    // Cache successful GET responses
+    if (response.config.method?.toLowerCase() === 'get') {
+      const cacheKey = `${response.config.url}${JSON.stringify(response.config.params || {})}`;
+      cache.set(cacheKey, {
+        timestamp: Date.now(),
+        data: response
+      });
+    }
+
     console.log('✅ API Response:', {
       status: response.status,
       url: response.config.url,
@@ -59,6 +93,11 @@ api.interceptors.response.use(
     return response;
   },
   (error) => {
+    // Return cached response if this was a cache hit
+    if (error.__CACHE_HIT__) {
+      return Promise.resolve(error);
+    }
+
     console.error('❌ Response Error:', {
       message: error.message,
       response: {

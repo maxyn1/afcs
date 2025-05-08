@@ -70,6 +70,9 @@ class WalletController {
       throw new Error('Missing required parameters for updating balance');
     }
 
+    // Map credit/debit type to correct transaction_type enum value
+    const mappedTransactionType = type === 'credit' ? 'top_up' : 'payment';
+
     // Insert transaction record
     await connection.query(
       `INSERT INTO wallet_transactions (
@@ -77,9 +80,10 @@ class WalletController {
         amount, 
         transaction_type, 
         description, 
+        payment_method,
         status
-      ) VALUES (?, ?, ?, ?, ?)`,
-      [userId, amount, type, description || transactionType, 'completed']
+      ) VALUES (?, ?, ?, ?, ?, ?)`,
+      [userId, amount, mappedTransactionType, description || transactionType, 'mpesa', 'completed']
     );
 
     // Update user balance
@@ -88,6 +92,28 @@ class WalletController {
       `UPDATE users SET balance = balance ${operator} ? WHERE id = ?`,
       [amount, userId]
     );
+
+    // Get the updated balance in a separate query
+    const [[{ balance }]] = await connection.query(
+      'SELECT balance FROM users WHERE id = ?',
+      [userId]
+    );
+
+    // Emit balance update through Socket.IO
+    const io = global.app?.get('io');
+    if (io) {
+      io.to(`user:${userId}`).emit('balanceUpdate', {
+        balance,
+        transaction: {
+          amount,
+          type,
+          description,
+          timestamp: new Date().toISOString()
+        }
+      });
+    }
+
+    return balance;
   }
 }
 

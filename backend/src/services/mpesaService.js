@@ -9,10 +9,13 @@ class MpesaService {
     }
 
     this.pool = pool;
+    this.pendingTransactions = new Map();
+    this.MAX_RETRIES = 3;
+    this.RETRY_DELAY = 2000; // 2 seconds
 
     // Validate URL format and presence
     if (!config.mpesa.CallBackURL) {
-      throw new Error('MPESA callback URL is not configured. Please set MPESA_CALLBACK_URL in your environment variables.');
+      throw new Error('MPESA callback URL is not configured');
     }
 
     try {
@@ -20,12 +23,9 @@ class MpesaService {
       if (callbackUrl.protocol !== 'https:') {
         throw new Error('MPESA callback URL must use HTTPS protocol');
       }
-      if (!callbackUrl.pathname.endsWith('/api/mpesa/callback')) {
-        throw new Error('MPESA callback URL must end with /api/mpesa/callback');
-      }
     } catch (error) {
       if (error instanceof TypeError) {
-        throw new Error(`Invalid MPESA callback URL format: ${config.mpesa.CallBackURL}. Must be a valid HTTPS URL.`);
+        throw new Error(`Invalid MPESA callback URL format: ${config.mpesa.CallBackURL}`);
       }
       throw error;
     }
@@ -36,37 +36,39 @@ class MpesaService {
     this.passkey = config.mpesa.passkey;
     this.CallBackURL = config.mpesa.CallBackURL;
     this.token = null;
+    this.tokenExpiry = null;
 
-    // Verify all required credentials are present
-    const requiredFields = ['consumerKey', 'consumerSecret', 'businessShortCode', 'passkey', 'CallBackURL'];
-    const missingFields = requiredFields.filter(field => !this[field]);
-    if (missingFields.length > 0) {
-      throw new Error(`Missing required MPesa configuration: ${missingFields.join(', ')}`);
-    }
+    // Initialize batching queue
+    this.batchQueue = [];
+    this.batchTimeout = null;
+    this.BATCH_SIZE = 10;
+    this.BATCH_TIMEOUT = 1000; // 1 second
 
     console.log('MPesa Service initialized with callback URL:', this.CallBackURL);
   }
 
-  async getAuthToken() {
-    try {
-      console.log('Requesting MPesa auth token...');
-      const auth = Buffer.from(`${this.consumerKey}:${this.consumerSecret}`).toString('base64');
+  async getAuthToken(force = false) {
+    const now = Date.now();
+    
+    // Check if we have a valid cached token
+    if (!force && this.token && this.tokenExpiry && now < this.tokenExpiry) {
+      return this.token;
+    }
 
-      const response = await axios.get(
-        'https://sandbox.safaricom.co.ke/oauth/v1/generate?grant_type=client_credentials',
-        {
-          headers: {
-            Authorization: `Basic ${auth}`
+    try {
+      const auth = Buffer.from(`${this.consumerKey}:${this.consumerSecret}`).toString('base64');
+      const response = await this.retryRequest(
+        () => axios.get(
+          'https://sandbox.safaricom.co.ke/oauth/v1/generate?grant_type=client_credentials',
+          {
+            headers: { Authorization: `Basic ${auth}` }
           }
-        }
+        )
       );
 
-      console.log('Auth token response:', {
-        status: response.status,
-        hasToken: !!response.data.access_token
-      });
-
       this.token = response.data.access_token;
+      // Set token expiry to 50 minutes (tokens are valid for 1 hour)
+      this.tokenExpiry = now + (50 * 60 * 1000);
       return this.token;
     } catch (error) {
       console.error('Error getting auth token:', {
@@ -78,41 +80,38 @@ class MpesaService {
     }
   }
 
+  async retryRequest(requestFn, retries = this.MAX_RETRIES) {
+    for (let i = 0; i < retries; i++) {
+      try {
+        return await requestFn();
+      } catch (error) {
+        if (i === retries - 1) throw error;
+        
+        // Check if we should retry based on error type
+        if (error.response?.status === 401) {
+          // Token expired, get a new one
+          await this.getAuthToken(true);
+        }
+        
+        console.log(`Retrying request (${i + 1}/${retries})...`);
+        await new Promise(resolve => setTimeout(resolve, this.RETRY_DELAY));
+      }
+    }
+  }
+
   generateTransactionReference() {
     const date = new Date();
-    // Format: MMDDYY (6 digits)
     const formattedDate = String(date.getMonth() + 1).padStart(2, '0') +
       String(date.getDate()).padStart(2, '0') +
       date.getFullYear().toString().slice(-2);
-    
-    // Generate a random 3-digit number (leaving room for the TRX prefix)
     const randomNum = Math.floor(100 + Math.random() * 900);
-    // Create 12-character reference: TRX + MMDDYY + XXX
     const reference = `TRX${formattedDate}${randomNum}`;
     
-    console.log('Generated transaction reference:', {
-      reference,
-      date: formattedDate,
-      randomNum,
-      length: reference.length
-    });
-
-    if (reference.length !== 12) {
-      console.warn('Generated reference length warning:', {
-        reference,
-        actualLength: reference.length,
-        expectedLength: 12
-      });
-    }
-
     return reference;
   }
 
   formatPhoneNumber(phoneNumber) {
-    // Remove any spaces or special characters
     phoneNumber = phoneNumber.replace(/[^0-9]/g, '');
-    
-    // Convert to international format (254)
     if (phoneNumber.startsWith('0')) {
       return '254' + phoneNumber.substring(1);
     } else if (phoneNumber.startsWith('254')) {
@@ -120,125 +119,130 @@ class MpesaService {
     } else if (phoneNumber.startsWith('+254')) {
       return phoneNumber.substring(1);
     }
-    
-    // If no known format, assume it needs 254 prefix
     return '254' + phoneNumber;
   }
 
-  async initiateSTKPush(phoneNumber, amount, userId) {
-    try {
-      const formattedPhone = this.formatPhoneNumber(phoneNumber);
-      
-      console.log('Initiating STK Push with params:', {
-        originalPhone: phoneNumber,
-        formattedPhone,
-        amount,
-        CallBackURL: this.CallBackURL
-      });
+  async processBatch(transactions) {
+    const token = await this.getAuthToken();
+    const timestamp = new Date().toISOString().replace(/[^0-9]/g, '').slice(0, -3);
+    const password = Buffer.from(
+      `${this.businessShortCode}${this.passkey}${timestamp}`
+    ).toString('base64');
 
-      const token = await this.getAuthToken();
-      const timestamp = new Date()
-        .toISOString()
-        .replace(/[^0-9]/g, '')
-        .slice(0, -3);
-      const password = Buffer.from(
-        `${this.businessShortCode}${this.passkey}${timestamp}`
-      ).toString('base64');
-      const accountReference = this.generateTransactionReference();
-
-      console.log('Generated account reference for STK Push:', {
-        accountReference,
-        timestamp,
-        length: accountReference.length,
-        businessShortCode: this.businessShortCode
-      });
-
-      const payload = {
+    const requests = transactions.map(({ phoneNumber, amount, userId }) => ({
+      headers: {
+        Authorization: `Bearer ${token}`,
+        'Content-Type': 'application/json'
+      },
+      payload: {
         BusinessShortCode: this.businessShortCode,
         Password: password,
         Timestamp: timestamp,
         TransactionType: "CustomerPayBillOnline",
-        Amount: Math.round(amount), // Safaricom requires whole numbers
-        PartyA: formattedPhone,
+        Amount: Math.round(amount),
+        PartyA: this.formatPhoneNumber(phoneNumber),
         PartyB: this.businessShortCode,
-        PhoneNumber: formattedPhone,
+        PhoneNumber: this.formatPhoneNumber(phoneNumber),
         CallBackURL: this.CallBackURL,
-        AccountReference: accountReference,
+        AccountReference: this.generateTransactionReference(),
         TransactionDesc: "Wallet TopUp"
-      };
-
-      console.log('STK Push request payload:', {
-        ...payload,
-        Password: '[REDACTED]',
-        AccountReference: accountReference
-      });
-
-      const response = await axios.post(
-        'https://sandbox.safaricom.co.ke/mpesa/stkpush/v1/processrequest',
-        payload,
-        {
-          headers: {
-            Authorization: `Bearer ${token}`,
-            'Content-Type': 'application/json'
-          }
-        }
-      );
-
-      console.log('STK Push response:', {
-        ...response.data,
-        sentAccountReference: accountReference
-      });
-
-      // Create transaction record
-      if (this.pool) {
-        const connection = await this.pool.getConnection();
-        try {
-          await connection.query(
-            `INSERT INTO mpesa_transactions (
-              id,
-              merchant_request_id,
-              checkout_request_id,
-              account_reference,
-              transaction_type,
-              amount,
-              phone_number,
-              user_id,
-              status
-            ) VALUES (UUID(), ?, ?, ?, 'stk_push', ?, ?, ?, 'pending')`,
-            [
-              response.data.MerchantRequestID,
-              response.data.CheckoutRequestID,
-              accountReference,
-              amount,
-              formattedPhone,
-              userId
-            ]
-          );
-        } finally {
-          connection.release();
-        }
       }
-      
-      return {
-        ...response.data,
-        accountReference
-      };
-    } catch (error) {
-      console.error('STK Push error:', {
-        message: error.message,
-        response: error.response?.data,
-        status: error.response?.status
+    }));
+
+    const results = await Promise.allSettled(
+      requests.map(({ headers, payload }, index) =>
+        this.retryRequest(() =>
+          axios.post(
+            'https://sandbox.safaricom.co.ke/mpesa/stkpush/v1/processrequest',
+            payload,
+            { headers }
+          )
+        ).then(async (response) => {
+          const transaction = transactions[index];
+          if (this.pool) {
+            const connection = await this.pool.getConnection();
+            try {
+              await connection.query(
+                `INSERT INTO mpesa_transactions (
+                  id, merchant_request_id, checkout_request_id, 
+                  account_reference, transaction_type, amount,
+                  phone_number, user_id, status
+                ) VALUES (UUID(), ?, ?, ?, 'stk_push', ?, ?, ?, 'pending')`,
+                [
+                  response.data.MerchantRequestID,
+                  response.data.CheckoutRequestID,
+                  payload.AccountReference,
+                  transaction.amount,
+                  transaction.phoneNumber,
+                  transaction.userId
+                ]
+              );
+            } finally {
+              connection.release();
+            }
+          }
+          return { ...response.data, accountReference: payload.AccountReference };
+        })
+      )
+    );
+
+    return results.map((result, index) => ({
+      phoneNumber: transactions[index].phoneNumber,
+      success: result.status === 'fulfilled',
+      data: result.status === 'fulfilled' ? result.value : null,
+      error: result.status === 'rejected' ? result.reason : null
+    }));
+  }
+
+  queueTransaction(phoneNumber, amount, userId) {
+    return new Promise((resolve, reject) => {
+      this.batchQueue.push({ phoneNumber, amount, userId, resolve, reject });
+
+      if (this.batchQueue.length >= this.BATCH_SIZE) {
+        this.processBatchQueue();
+      } else if (!this.batchTimeout) {
+        this.batchTimeout = setTimeout(() => this.processBatchQueue(), this.BATCH_TIMEOUT);
+      }
+    });
+  }
+
+  async processBatchQueue() {
+    if (this.batchTimeout) {
+      clearTimeout(this.batchTimeout);
+      this.batchTimeout = null;
+    }
+
+    if (this.batchQueue.length === 0) return;
+
+    const currentBatch = this.batchQueue.splice(0, this.BATCH_SIZE);
+    const transactions = currentBatch.map(({ phoneNumber, amount, userId }) => ({
+      phoneNumber, amount, userId
+    }));
+
+    try {
+      const results = await this.processBatch(transactions);
+      results.forEach((result, index) => {
+        if (result.success) {
+          currentBatch[index].resolve(result.data);
+        } else {
+          currentBatch[index].reject(result.error);
+        }
       });
-      throw error;
+    } catch (error) {
+      currentBatch.forEach(({ reject }) => reject(error));
     }
   }
 
+  async initiateSTKPush(phoneNumber, amount, userId) {
+    return this.queueTransaction(phoneNumber, amount, userId);
+  }
+
+  // Existing QR code methods remain unchanged
   async generateQRCode(amount) {
     try {
       const reference = this.generateTransactionReference();
       const token = await this.getAuthToken();
 
-      // Generate M-Pesa QR code payload according to Daraja API specs
       const payload = {
         MerchantName: "Kenya AFCS",
         RefNo: reference,
@@ -248,19 +252,19 @@ class MpesaService {
         Size: "300"
       };
 
-      // Call M-Pesa QR API
-      const response = await axios.post(
-        'https://sandbox.safaricom.co.ke/mpesa/qrcode/v1/generate',
-        payload,
-        {
-          headers: {
-            Authorization: `Bearer ${token}`,
-            'Content-Type': 'application/json'
+      const response = await this.retryRequest(() =>
+        axios.post(
+          'https://sandbox.safaricom.co.ke/mpesa/qrcode/v1/generate',
+          payload,
+          {
+            headers: {
+              Authorization: `Bearer ${token}`,
+              'Content-Type': 'application/json'
+            }
           }
-        }
+        )
       );
 
-      // The QR code from Safaricom's API is already base64 encoded
       return {
         success: true,
         qrCode: response.data.QRCode,
@@ -276,13 +280,15 @@ class MpesaService {
     try {
       const token = await this.getAuthToken();
       
-      const response = await axios.get(
-        `https://sandbox.safaricom.co.ke/mpesa/qrcode/v1/query/${reference}`,
-        {
-          headers: {
-            Authorization: `Bearer ${token}`
+      const response = await this.retryRequest(() =>
+        axios.get(
+          `https://sandbox.safaricom.co.ke/mpesa/qrcode/v1/query/${reference}`,
+          {
+            headers: {
+              Authorization: `Bearer ${token}`
+            }
           }
-        }
+        )
       );
 
       return {

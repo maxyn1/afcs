@@ -164,8 +164,18 @@ class AuthService {
     try {
       console.log('Fetching routes...');
       const response = await api.get('/routes');
-      console.log('Routes response:', response.data);
-      return response;
+      console.log('Raw routes response:', response.data);
+      
+      // Transform response to match Route interface
+      const transformedRoutes = response.data.map((r: any) => ({
+        id: r.id,
+        route: r.name || `${r.start_point} - ${r.end_point}`,
+        fare: r.fare || r.base_fare || 0,
+        start_point: r.start_point || r.start_location,
+        end_point: r.end_point || r.end_location
+      }));
+      console.log('Transformed routes:', transformedRoutes);
+      return { data: transformedRoutes };
     } catch (error) {
       console.error('Error fetching routes:', error);
       if (axios.isAxiosError(error)) {
@@ -200,7 +210,12 @@ class AuthService {
   async getWalletBalance() {
     try {
       const response = await api.get('/wallet/balance');
-      return response;
+      // Ensure we return a properly formatted response
+      return {
+        data: {
+          balance: Number(response.data.balance) || 0
+        }
+      };
     } catch (error) {
       console.error('Error fetching wallet balance:', error);
       throw error;
@@ -237,10 +252,19 @@ class AuthService {
     amount: number;
   }) {
     try {
+      console.log('Making payment with details:', {
+        ...paymentDetails,
+        timestamp: new Date().toISOString()
+      });
       const response = await api.post('/payments', paymentDetails);
+      console.log('Payment response:', response.data);
       return response;
     } catch (error) {
-      console.error('Error making payment:', error);
+      console.error('Error making payment:', {
+        error: error.response?.data || error.message,
+        details: paymentDetails,
+        timestamp: new Date().toISOString()
+      });
       throw error;
     }
   }

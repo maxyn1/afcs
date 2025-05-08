@@ -1,4 +1,3 @@
-
 import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import driverService, { Trip } from "@/services/driverService";
@@ -192,7 +191,7 @@ const TripList = ({ trips, getBadgeVariant, formatDate }: TripListProps) => {
               <div className="flex items-center gap-2">
                 <MapPin className="h-4 w-4 text-muted-foreground" />
                 <span className="text-muted-foreground">Fare:</span>
-                <span>KES {trip.amount.toFixed(2)}</span>
+                <span>KES {(trip.amount || 0).toFixed(2)}</span>
               </div>
             </div>
           </CardContent>
